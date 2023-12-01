@@ -1,0 +1,2 @@
+# dynomite
+structural dynamics tools
