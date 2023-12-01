@@ -1,6 +1,11 @@
 #from dynomite.core.time_series import
+from typing import Optional
+import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from dynomite.core.load_utils import _update_label
+
+
 class FourierTransform:
     def __init__(self, frequency: np.ndarray, fft_response: np.ndarray, label: list[str],
                  fft_type: str='real_imag', sided: int=1, is_onesided_center: bool=None):

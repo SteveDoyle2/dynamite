@@ -1,11 +1,12 @@
-from typing import Optional, Union
+from __future__ import annotations
+from typing import Optional # , Union
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from dynomite.core.load_utils import _update_label
 import dynomite.core.fourier_transform as ft
-
+import dynomite.core.time as time
 
 class TimeSeries:
     def __init__(self, time: np.ndarray,
@@ -57,7 +58,7 @@ class TimeSeries:
 
         assert fft_response.shape[0] == ntimes, (fft_response.shape, ntimes)
         #assert sided == 1
-        fft = FourierTransform(
+        fft = ft.FourierTransform(
             frequency, fft_response, label=self.label, fft_type=fft_type,
             sided=sided, is_onesided_center=is_onesided_center)
         return fft
@@ -79,7 +80,7 @@ class TimeSeries:
         overlap_int = int(fsampling * overlap_sec)
 
         #nfft - for 0 padded signals
-        ntimes = len(self.time)
+        #ntimes = len(self.time)
         #is_onesided_center = (ntimes % 2 == 1)
         response = _response_squeeze(self.response)
         frequency, psd_response = sp.signal.welch(
@@ -221,7 +222,7 @@ class PowerSpectralDensity:
         num = 1 + num0
         denom = (1 - rho2) + num0
         transmissibility = num / denom
-        trans = FourierTransform(
+        trans = ft.FourierTransform(
             self.frequency.copy(), transmissibility, self.label,
             sided=1, is_onesided_center=False,
             #octave_spacing=0,
