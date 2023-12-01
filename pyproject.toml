@@ -62,17 +62,19 @@ gui_pyside2 = [
 gui_pyside6 = [
     'PySide6',  # gui library
 ]
-gui = gui_pyside6
 
-dev = [
-    "dynomite[all]",
-    "tox",
-    "pre-commit",
-    "bump2version",
-    "setuptools>=66.0",
-    "wheel",
-]
-none = []
+gui = ['PySide6']
+#gui = gui_pyside6
+
+#dev = [
+#    #"dynomite[all]",
+#    "tox",
+#    "pre-commit",
+#    #"bump2version",
+#    "setuptools>=66.0",
+#    "wheel",
+#]
+#none = []
 #-------------------------------------------------------------------------------------------
 [project.scripts]
 #poetry = "infer_pyproject.cli:main"
