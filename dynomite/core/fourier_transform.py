@@ -1,14 +1,14 @@
-#from dynomite.core.time_series import
+#from dynamight.core.time_series import
 from typing import Optional
 import numpy as np
 import scipy as sp
 #import pandas as pd
 import matplotlib.pyplot as plt
-from dynomite.core.load_utils import _update_label, _response_squeeze
-import dynomite.core.time as dytime
-import dynomite.core.psd as dypsd # PowerSpectralDensity
-from dynomite.core.freq_utils import _to_twosided_fsampling, fft_to_psd_df, dft_to_onesided
-from dynomite.core.plot_utils import _set_grid, _adjust_axes_limit
+from dynamight.core.load_utils import _update_label, _response_squeeze
+import dynamight.core.time as dytime
+import dynamight.core.psd as dypsd # PowerSpectralDensity
+from dynamight.core.freq_utils import _to_twosided_fsampling, fft_to_psd_df, dft_to_onesided
+from dynamight.core.plot_utils import _set_grid, _adjust_axes_limit
 
 
 class FourierTransform:

@@ -3,7 +3,7 @@
 
 #-------------------------------------------------------------------------------------------
 [project]
-name = "dynomite"
+name = "dynamight"
 version = "0.0.1"
 description = "structural dynamics tools"
 #long_description = "structural dynamics tools"   # renamed to readme
@@ -83,10 +83,10 @@ dynomite = "dynmomite.gui.gui:cmd_line"
 #-------------------------------------------------------------------------------------------
 [project.urls]
 
-homepage        = "https://github.com/SteveDoyle2/dynomite/"
-issue_tracker   = "https://github.com/SteveDoyle2/dynomite/issues"
-documentation   = "https://github.com/SteveDoyle2/dynomite/"
-repository      = "https://github.com/SteveDoyle2/dynomite.git"
+homepage        = "https://github.com/SteveDoyle2/dynamight/"
+issue_tracker   = "https://github.com/SteveDoyle2/dynamight/issues"
+documentation   = "https://github.com/SteveDoyle2/dynamight/"
+repository      = "https://github.com/SteveDoyle2/dynamight.git"
 
 #-------------------------------------------------------------------------------------------
 [build-system]
@@ -111,20 +111,20 @@ universal = true
 # https://github.com/sphinx-toolbox/sphinx-pyproject/blob/master/pyproject.toml
 [tool.setuptools]
 include-package-data = false
-#packages = ["dynomite"]
+#packages = ["dynamight"]
 
 [tool.setuptools.packages.find]
 # https://stackoverflow.com/questions/75387904/how-to-exclude-tests-folder-from-the-wheel-of-a-pyproject-toml-managed-lib
 # don't include pdfs/dat files in the wheel
 #find = {}
 #where
-include = ["pyNastran*"]
+include = ["dynamight*"]
 #include = ["pkg*"]
 
 exclude = [
     'models/*',
-    'dynomite/converters/dev*',
-    'dynomite/converters/dev*',
+    'dynamight/converters/dev*',
+    'dynamight/converters/dev*',
 ]
 
 #-------------------------------------------------------------------------------------------

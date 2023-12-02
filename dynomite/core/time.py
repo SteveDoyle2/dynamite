@@ -3,11 +3,11 @@ from typing import Optional # , Union
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
-from dynomite.core.load_utils import _update_label, _response_squeeze
-import dynomite.core.fourier_transform as ft
-#import dynomite.core.time as time
-import dynomite.core.psd as dypsd # PowerSpectralDensity
-from dynomite.core.freq_utils import fft_to_psd_df
+from dynamight.core.load_utils import _update_label, _response_squeeze
+import dynamight.core.fourier_transform as ft
+#import dynamight.core.time as time
+import dynamight.core.psd as dypsd # PowerSpectralDensity
+from dynamight.core.freq_utils import fft_to_psd_df
 
 
 class TimeSeries:

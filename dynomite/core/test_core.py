@@ -4,9 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-from dynomite.core.freq_utils import _to_twosided_fsampling
-from dynomite.core.time import TimeSeries
-from dynomite.core.psd import PowerSpectralDensity
+from dynamight.core.freq_utils import _to_twosided_fsampling
+from dynamight.core.time import TimeSeries
+from dynamight.core.psd import PowerSpectralDensity
 
 class TestCore(unittest.TestCase):
     def test_1(self):

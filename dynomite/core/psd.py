@@ -3,15 +3,15 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
-#import dynomite.core.time as dynatime
-from dynomite.core.load_utils import _update_label, _response_squeeze
+#import dynamight.core.time as dynatime
+from dynamight.core.load_utils import _update_label, _response_squeeze
 
-import dynomite.core.time as dytime
-import dynomite.core.fourier_transform as ft
-import dynomite.core.vrs as dynvrs # VibrationResponseSpectra
-from dynomite.core.freq_utils import _to_twosided_fsampling, psd_to_onesided, psd_to_twosided
-#from dynomite.plotting.utils import _set_grid
-from dynomite.core.plot_utils import _set_grid
+import dynamight.core.time as dytime
+import dynamight.core.fourier_transform as ft
+import dynamight.core.vrs as dynvrs # VibrationResponseSpectra
+from dynamight.core.freq_utils import _to_twosided_fsampling, psd_to_onesided, psd_to_twosided
+#from dynamight.plotting.utils import _set_grid
+from dynamight.core.plot_utils import _set_grid
 
 
 class PowerSpectralDensity:

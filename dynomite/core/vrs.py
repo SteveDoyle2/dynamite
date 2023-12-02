@@ -4,15 +4,15 @@ import numpy as np
 #import scipy as sp
 import matplotlib.pyplot as plt
 
-#import dynomite.core.time as dynatime
-from dynomite.core.load_utils import _update_label, _response_squeeze
+#import dynamight.core.time as dynatime
+from dynamight.core.load_utils import _update_label, _response_squeeze
 
-#from dynomite.core.time import TimeSeries
-#import dynomite.core.fourier_transform as ft
-#import dynomite.core.vrs as vrs # VibrationResponseSpectra
-#import dynomite.core.psd as dypsd
-from dynomite.core.freq_utils import _to_twosided_fsampling
-from dynomite.core.plot_utils import _set_grid
+#from dynamight.core.time import TimeSeries
+#import dynamight.core.fourier_transform as ft
+#import dynamight.core.vrs as vrs # VibrationResponseSpectra
+#import dynamight.core.psd as dypsd
+from dynamight.core.freq_utils import _to_twosided_fsampling
+from dynamight.core.plot_utils import _set_grid
 
 
 class VibrationResponseSpectra:
