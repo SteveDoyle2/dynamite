@@ -1,38 +1,59 @@
-#import numpy as np
+from typing import Optional
+
+import numpy as np
 #import scipy as sp
 import matplotlib.pyplot as plt
 
 #import dynomite.core.time as dynatime
-#from dynomite.core.load_utils import _update_label
+from dynomite.core.load_utils import _update_label, _response_squeeze
 
 #from dynomite.core.time import TimeSeries
 #import dynomite.core.fourier_transform as ft
 #import dynomite.core.vrs as vrs # VibrationResponseSpectra
-from dynomite.core.psd import PowerSpectralDensity
-from dynomite.plotting.utils import _set_grid
+#import dynomite.core.psd as dypsd
+from dynomite.core.freq_utils import _to_twosided_fsampling
+from dynomite.core.plot_utils import _set_grid
 
 
-class VibrationResponseSpectra(PowerSpectralDensity):
-    #def __init__(self, frequency: np.ndarray, vrs_response: np.ndarray, label: list[str],
-                 #sided: int=1, is_onesided_center: bool=None, octave_spacing: int=0):
-        #if vrs_response.ndim == 1:
-            #psd_response = psd_response.reshape(len(psd_response), 1)
-        #if 'complex' in psd_response.dtype.name:
-            #raise TypeError(psd_response)
-        #assert psd_response.shape[1] == 1, psd_response.shape
-        #self.frequency = frequency
-        #self.response = psd_response
-        #self.label = _update_label(label)
-        #self.octave_spacing = octave_spacing
-        #self.sided = sided
-        #self.is_onesided_center = is_onesided_center
-        ##assert sided == 2
-        #assert is_onesided_center is not None
-        #assert sided in {1, 2}, sided
-        #assert octave_spacing >= 0, octave_spacing
-        #assert isinstance(frequency, np.ndarray), type(frequency)
-        #assert isinstance(psd_response, np.ndarray), type(psd_response)
-        #print('psd-init', self.fsampling, self.df, self.is_onesided_center)
+class VibrationResponseSpectra:
+    def __init__(self, frequency: np.ndarray, vrs_response: np.ndarray, label: list[str],
+                 sided: int=1, is_onesided_center: bool=None, octave_spacing: int=0):
+        if vrs_response.ndim == 1:
+            vrs_response = vrs_response.reshape(len(vrs_response), 1)
+        if 'complex' in vrs_response.dtype.name:
+            raise TypeError(vrs_response)
+        assert vrs_response.shape[1] == 1, vrs_response.shape
+        self.frequency = frequency
+        self.response = vrs_response
+        self.label = _update_label(label)
+        self.octave_spacing = octave_spacing
+        self.sided = sided
+        self.is_onesided_center = is_onesided_center
+        #assert sided == 2
+        assert is_onesided_center is not None
+        assert sided in {1, 2}, sided
+        assert octave_spacing >= 0, octave_spacing
+        assert isinstance(frequency, np.ndarray), type(frequency)
+        assert isinstance(vrs_response, np.ndarray), type(vrs_response)
+        print('vrs-init', self.fsampling, self.df, self.is_onesided_center)
+
+    @property
+    def df(self):
+        if self.octave_spacing == 0:
+            return self.frequency[1] - self.frequency[0]
+        raise RuntimeError(self.octave_spacing)
+
+    @property
+    def fsampling(self) -> float:
+        assert self.sided in {1, 2}
+        if self.octave_spacing == 0:
+            fmax = self.frequency[-1]
+            df = self.df
+            fsampling = _to_twosided_fsampling(
+                fmax, df, sided=self.sided,
+                is_onesided_center=self.is_onesided_center)
+            return fsampling
+        raise RuntimeError(self.octave_spacing)
 
     def plot(self, ifig: int=1,
              ax: Optional[plt.Axes]=None,

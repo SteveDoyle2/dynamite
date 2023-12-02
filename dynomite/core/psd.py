@@ -1,14 +1,18 @@
+from typing import Optional
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
 #import dynomite.core.time as dynatime
-from dynomite.core.load_utils import _update_label
+from dynomite.core.load_utils import _update_label, _response_squeeze
 
-from dynomite.core.time import TimeSeries
+import dynomite.core.time as dytime
 import dynomite.core.fourier_transform as ft
-import dynomite.core.vrs as vrs # VibrationResponseSpectra
-from dynomite.plotting.utils import _set_grid
+import dynomite.core.vrs as dynvrs # VibrationResponseSpectra
+from dynomite.core.freq_utils import _to_twosided_fsampling, psd_to_onesided, psd_to_twosided
+#from dynomite.plotting.utils import _set_grid
+from dynomite.core.plot_utils import _set_grid
+
 
 class PowerSpectralDensity:
     def __init__(self, frequency: np.ndarray, psd_response: np.ndarray, label: list[str],
@@ -71,7 +75,7 @@ class PowerSpectralDensity:
 
         dt = 1 / self.fsampling
         time = np.arange(0, npoints) * dt
-        time_series = TimeSeries(time, ifft.real, self.label)
+        time_series = dytime.TimeSeries(time, ifft.real, self.label)
         return time_series
 
     def to_miles_equation(self, Q: float) -> np.ndarray:
@@ -79,7 +83,7 @@ class PowerSpectralDensity:
         vrs = np.sqrt(np.pi/(4*zeta) * np.frequency)
         return vrs
 
-    def to_sdof_transmissibility(self, Q: float, fn: float) -> ft.FourierTransform:
+    def to_sdof_transmissibility(self, Q: float, fn: float):
         """https://www.dataphysics.com/blog/shock-analysis/understanding-shock-response-spectra/"""
         rho = self.frequency / fn
         rho2 = rho ** 2
@@ -95,7 +99,7 @@ class PowerSpectralDensity:
         )
         return trans
 
-    def to_sdof_vrs_response(self, Q: float, fn: float) -> vrs.VibrationResponseSpectra:
+    def to_sdof_vrs_response(self, Q: float, fn: float) -> dynvrs.VibrationResponseSpectra:
         """http://www.vibrationdata.com/tutorials_alt/frf.pdf"""
         zeta = 1 / (2 * Q)
         freq2 = self.frequency ** 2
@@ -104,12 +108,12 @@ class PowerSpectralDensity:
 
         psd_response = np.abs(num / denom)
         psd_response *= self.response[0, 0] / psd_response[0]
-        vrsi = vrs.VibrationResponseSpectra(
+        vrsi = dynvrs.VibrationResponseSpectra(
             self.frequency, psd_response.real, self.label,
             sided=1, is_onesided_center=False, octave_spacing=0)
         return vrsi
 
-    def to_vrs(self, Q: float) -> vrs.VibrationResponseSpectra:
+    def to_vrs(self, Q: float) -> dynvrs.VibrationResponseSpectra:
         """vibration response spectra"""
         zeta = 1 / (2 * Q)
         df = np.diff(self.frequency).mean()
@@ -149,14 +153,14 @@ class PowerSpectralDensity:
                 grms = np.sqrt(grms1.sum())
                 grmss[i] = grms
 
-        vrsi = vrs.VibrationResponseSpectra(
+        vrsi = dynvrs.VibrationResponseSpectra(
             freqs, grmss, label=self.label,
             sided=self.sided,
             is_onesided_center=self.is_onesided_center,
             octave_spacing=self.octave_spacing)
         return vrsi
 
-    def to_onesided(self, inplace: bool=True) -> PowerSpectralDensity:
+    def to_onesided(self, inplace: bool=True):
         if self.sided == 1:
             return self
         assert self.sided == 2, self.sided
@@ -175,7 +179,7 @@ class PowerSpectralDensity:
                 octave_spacing=self.octave_spacing)
         return out
 
-    def to_twosided(self, inplace: bool=True) -> PowerSpectralDensity:
+    def to_twosided(self, inplace: bool=True):
         if self.sided == 2:
             self.fsampling
             self.df
@@ -199,7 +203,7 @@ class PowerSpectralDensity:
         out.df
         return out
 
-    def resample(self, frequency: np.ndarray, inplace: bool=True) -> PowerSpectralDensity:
+    def resample(self, frequency: np.ndarray, inplace: bool=True):
         """uses a log-log interp"""
         # TODO: get rid of for loop
         psd_response = np.zeros(self.response.shape, dtype=self.response.dtype)

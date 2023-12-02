@@ -1,9 +1,14 @@
 #from dynomite.core.time_series import
 from typing import Optional
 import numpy as np
-import pandas as pd
+import scipy as sp
+#import pandas as pd
 import matplotlib.pyplot as plt
-from dynomite.core.load_utils import _update_label
+from dynomite.core.load_utils import _update_label, _response_squeeze
+import dynomite.core.time as dytime
+import dynomite.core.psd as dypsd # PowerSpectralDensity
+from dynomite.core.freq_utils import _to_twosided_fsampling, fft_to_psd_df, dft_to_onesided
+from dynomite.core.plot_utils import _set_grid, _adjust_axes_limit
 
 
 class FourierTransform:
@@ -42,13 +47,13 @@ class FourierTransform:
         ifft = sp.fft.ifft(response, n=None, axis=-1, norm=None,
                            overwrite_x=False, workers=None, plan=None)
         time = np.arange(0, ntimes) * dt
-        time_series = TimeSeries(time, ifft.real, label=self.label)
+        time_series = dytime.TimeSeries(time, ifft.real, label=self.label)
         return time_series
 
-    def to_psd(self, sided: int=1):
+    def to_psd(self, sided: int=1) -> dypsd.PowerSpectralDensity:
         psd_response = fft_to_psd_df(self.frequency, self.response)
         #toonesided
-        psd = PowerSpectralDensity(
+        psd = dypsd.PowerSpectralDensity(
             self.frequency.copy(), psd_response, label=self.label,
             sided=sided, is_onesided_center=self.is_onesided_center)
         return psd
