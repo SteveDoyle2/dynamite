@@ -100,8 +100,8 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import savefig
 
 
-def ins_resp(data, dt: float, periods=None,
-             xi: float=0.05) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def ins_resp_old(data, dt: float, periods=None,
+                 xi: float=0.05) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     The function generates:
      - pseudo-spectral acceleration (PSA)
@@ -166,8 +166,8 @@ def ins_resp(data, dt: float, periods=None,
     """ Spectral solution """
 
     omegans = 2 * np.pi / periods  # Angular frequency
-    Cs = 2 * xi * omegan # Two time of critical damping and angular freq.
-    Ks = omegan ** 2
+    Cs = 2 * xi * omegans # Two time of critical damping and angular freq.
+    Ks = omegans ** 2
     for num, omegan, C, K in zip(count(), omegans, Cs, Ks):
         y = np.zeros((2,len(acc)))
         A = np.array([[0, 1], [-K, -C]])
@@ -202,11 +202,135 @@ def ins_resp(data, dt: float, periods=None,
         SD[num] = displ_max[num]          # SD  (cm)
     return PSA, PSV, SD
 
+
+def ins_resp(data, dt: float, periods=None,
+             xi: float=0.05) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    The function generates:
+     - pseudo-spectral acceleration (PSA)
+     - pseudo-spectral velocity (PSV)
+     - spectral displacement (SD) spectra
+    for given damping ratio (xi).
+    Spectral ordinates are for linear-elastic single-degree-of-freedom
+    system with unit mass.
+
+
+    Reference:
+    Wang, L.J. (1996). Processing of near-field earthquake accelerograms:
+    Pasadena, California Institute of Technology.
+
+    This code is converted from Matlab code of Dr. Erol Kalkan, P.E.
+    Link:
+    https://www.mathworks.com/matlabcentral/fileexchange/57906-pseudo-spectral-acceleration--velocity-and-displacement-spectra?s_tid=prof_contriblnk
+
+    Pulled from: https://github.com/dertuncay/Response-Spectra/tree/master
+    modified to be a bit cleaner/vectorized
+
+    Parameters
+    ----------
+    data    = numpy array type object (in acceleration (cm/s^2))
+    dt      = sampling interval
+    periods = spectral periods (Default: 0.01 to 10 seconds with 100 sample)
+    xi      = damping factor (Default: 0.05)
+
+    Returns
+    -------
+    PSA = Pseudo-spectral acceleration ordinates
+    PSV = Pseudo-spectral velocity ordinates
+    SD  = spectral displacement ordinates
+    """
+    if periods is None:
+        periods = np.array([
+            0.01,0.02,0.022,0.025,0.029,0.03,0.032,0.035,0.036,
+            0.04,0.042,0.044,0.045,0.046,0.048,0.05,0.055,0.06,0.065,0.067,0.07,
+            0.075,0.08,0.085,0.09,0.095,0.1,0.11,0.12,0.125,0.13,0.133,0.14,0.15,
+            0.16,0.17,0.18,0.19,0.2,0.22,0.24,0.25,0.26,0.28,0.29,0.3,0.32,0.34,
+            0.35,0.36,0.38,0.4,0.42,0.44,0.45,0.46,0.48,0.5,0.55,0.6,0.65,0.667,
+            0.7,0.75,0.8,0.85,0.9,0.95,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,
+            2,2.2,2.4,2.5,2.6,2.8,3,3.2,3.4,3.5,3.6,3.8,4,4.2,4.4,4.6,4.8,5,7.5,10])
+
+    n = len(periods)
+    displ_max = np.empty(n, dtype='float64')
+    veloc_max = np.empty(n, dtype='float64')
+    absacc_max = np.empty(n, dtype='float64')
+    foverm_max = np.empty(n, dtype='float64')
+    pseudo_acc_max = np.empty(n, dtype='float64')
+    pseudo_veloc_max = np.empty(n, dtype='float64')
+
+    acc = data
+    #vel = data[0].integrate(method='cumtrapz')
+    #dist = data[0].integrate(method='cumtrapz')
+
+    """ Spectral solution """
+
+    omegans = 2 * np.pi / periods  # Angular frequency
+    C = 2 * xi * omegans # Two time of critical damping and angular freq.
+    K = omegans ** 2
+    A = np.zeros((n, 2, 2), dtype='float64')
+    A[:, 0, 1] = 1.
+    A[:, 1, 0] = -K
+    A[:, 1, 1] = -C
+    Aes = expm(A*dt)
+    eye2 = np.eye(2, dtype=int)
+    Ae_eye2 = Aes - eye2
+    pinvA = pinv(A)
+    temp2 = np.einsum('nij,njl->nil', Ae_eye2, pinvA)
+
+    zero_one = np.array([[0.0], [1.0]])
+    AeB = np.dot(temp2, zero_one)
+
+    nacc = len(data)
+    ks = np.arange(1, nacc)
+    AeB_accels2 = np.einsum('nij,k->nkij', AeB, acc[ks])
+    for num, omegan, Ae, AeB_accels in zip(count(), omegans, Aes, AeB_accels2):
+        #A = np.array([[0, 1], [-K, -C]])
+        #assert np.allclose(A, Ai)
+        #Ae = expm(A*dt)
+        #assert np.allclose(Ae, Aei)
+        #pinvA = pinv(A)
+        #assert np.allclose(pinvA, pinvA)
+        #Ae_eye2 = Ae - eye2
+        #assert np.allclose(Ae_eye2, Ae_eye2i)
+        #temp2 = np.dot(Ae_eye2, pinvA)
+        #assert np.allclose(temp2, temp2i)
+        #AeB = np.dot(temp2, zero_one)
+        #assert np.allclose(AeB, AeBi)
+        #AeB_accels = np.einsum('ij,k->kij', AeB, acc[ks])
+        #assert np.allclose(AeB_accels, AeB_accelsi)
+
+        y = np.zeros((2, nacc))
+        for k, AeB_accel in zip(ks, AeB_accels):
+            #AeB_accel = np.dot(AeB, accel)
+            #AeB_accel = AeB * acc[k]
+            #assert np.allclose(AeB_accel, AeB_acceli)
+            AA = np.reshape(np.dot(Ae, y[:,k-1]), (2,1))
+            yi = np.add(AA, AeB_accel)
+            y[:,k] = yi.ravel()
+        displ = y[0,:].ravel()                # Relative displacement vector (cm)
+        veloc = y[1,:].ravel()                # Relative velocity (cm/s)
+        foverm = (omegan**2) * displ          # Lateral resisting force over mass (cm/s^2)
+        absacc = -2*xi*omegan*veloc - foverm  # Absolute acceleration from equilibrium (cm/s^2)
+
+        """ Extract peak values """
+        displ_max[num] = max(abs(displ))    # Spectral relative displacement (cm)
+        veloc_max[num] = max(abs(veloc))    # Spectral relative velocity (cm/s)
+        absacc_max[num] = max(abs(absacc))  # Spectral absolute acceleration (cm/s^2)
+        foverm_max[num] = max(abs(foverm))  # Spectral value of lateral resisting force over mass (cm/s^2)
+
+    pseudo_acc_max = displ_max*omegans**2  # Pseudo spectral acceleration (cm/s^2)
+    pseudo_veloc_max = displ_max*omegans   # Pseudo spectral velocity (cm/s)
+
+    PSA = pseudo_acc_max    # PSA (cm/s2)
+    PSV = pseudo_veloc_max  # PSV (cm/s)
+    SD = displ_max          # SD  (cm)
+    return PSA, PSV, SD
+
 def plotting(PSA: np.ndarray,
              PSV: np.ndarray,
              SD: np.ndarray,
              periods: np.ndarray,
-             saving: str,
+             length_unit: str,
+             saving: str='show',
              logplot: bool=True,
              title: str='') -> plt.Figure:
     fig = plt.figure()
@@ -227,12 +351,15 @@ def plotting(PSA: np.ndarray,
     ax2.grid(True)
     ax3.grid(True)
 
-    if title:
-        ax1.set_title(title + '\n' + 'Pseudo spectral acceleration ($\mathregular{cm/s^{2}}$)')
-    else:
-        ax1.set_title('Pseudo spectral acceleration ($\mathregular{cm/s^{2}}$)')
-    ax2.set_title('Pseudo spectral velocity (cm/s)')
-    ax3.set_title('Spectral displacement (cm)')
+    accel_unit = f'{length_unit}/s^{2}'
+    velocity_unit = f'{length_unit}/s'
+
+    title2 = title + '\n' if title else ''
+    title2 += 'Pseudo spectral acceleration ($\mathregular{' + accel_unit + '}$)'
+
+    ax1.set_title(title2)
+    ax2.set_title(f'Pseudo spectral velocity ({velocity_unit})')
+    ax3.set_title(f'Spectral displacement ({length_unit})')
 
     ax1.set_ylabel('Amplitude', ha='center', va='center', rotation='vertical')
     ax2.set_ylabel('Amplitude', ha='center', va='center', rotation='vertical')

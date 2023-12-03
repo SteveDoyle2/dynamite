@@ -1,4 +1,5 @@
-from typing import BinaryIO
+import os
+from typing import TextIO, BinaryIO, Optional
 from struct import unpack
 import numpy as np
 
@@ -62,24 +63,27 @@ class BinaryReader:
         f.seek(self.n)
         return _write_data(fout, data_bytes, endian=endian, types=types)
 
-def show_binary(file_obj: BinaryIO, n: int, types='ifs') -> str:
+def show_binary_file(file_obj: BinaryIO, n: int, types='ifs') -> str:
     i0 = file_obj.tell()
     data = file_obj.read(n)
     file_obj.seek(i0)
+    return show_binary_data(data, types=types)
+
+def show_binary_data(data: bytes, types: str='ifs') -> str:
     assert len(data), data
 
     ndata = len(data)
     ndata4 = (ndata // 4) * 4
-    ndata8 = (ndata8 // 8) * 8
+    #ndata8 = (ndata // 8) * 8
     msg = ''
     if 'i' in types:
         ints = np.frombuffer(data[:ndata4], dtype='int32').tolist()
-        msg += 'ints: ' + str(ints)
+        msg += f'ints: {ints}\n'
     if 'f' in types:
         floats = np.frombuffer(data[:ndata4], dtype='float32').tolist()
-        msg += 'ints: ' + str(ints)
+        msg += f'floats: {floats}\n'
     if 's' in types:
-        msg += 'strings: ' + str(data)
+        msg += f'strings: {str(data)}\n'
     print(msg)
     return msg
 
@@ -87,8 +91,18 @@ def show_binary(file_obj: BinaryIO, n: int, types='ifs') -> str:
     #def __init__(self):
         #super().__init__()
 
-def read_sec(self, sec_filename: str):
+def read_sec(sec_filename: str):
     assert os.path.exists(sec_filename), sec_filename
-    with open(sec_filename, 'r') as f:
-        show_binary(f, 100, types='isf')
+    with open(sec_filename, 'rb') as f:
+        show_binary_file(f, 4*158, types='isf')
+
+        datai = f.read(4*158)
+        show_binary_data(f, datai, types='isf')
+        x = 1
+        data_bytes = f.read()
+        data = np.frombuffer(data, dtype='float32')
+        dt = data[0]
+        data = data[1:]
+    time = np.arange(len(data)) * dt
+    return time, data
 
