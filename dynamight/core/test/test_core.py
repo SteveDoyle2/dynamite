@@ -1,3 +1,4 @@
+import time
 import unittest
 
 import numpy as np
@@ -8,6 +9,7 @@ from dynamight.core.read_data import read_sec
 from dynamight.core.freq_utils import _to_twosided_fsampling
 from dynamight.core.time import TimeSeries
 from dynamight.core.psd import PowerSpectralDensity
+from dynamight.core.freq_utils import ins_resp, plotting
 
 class TestCore(unittest.TestCase):
     def test_1(self):
@@ -160,7 +162,6 @@ class TestCore(unittest.TestCase):
           10])
 
     def test_plot_psv(self):
-        from dynamight.core.freq_utils import ins_resp, ins_resp_old, plotting
         from obspy import read
         dirname = r'C:\NASA\m4\formats\git\dynomite\dynomite\core'
         st = read('1994-01-17T12_30_12.010000Z.TS.SBC.BHZ.SAC', format='SAC')
@@ -177,16 +178,6 @@ class TestCore(unittest.TestCase):
         # Be sure that the preprocesses such as detrend are applied to signal.
         #st[0].detrend(type='simple')
         #st[0].taper(max_percentage=0.05,type='hann')
-        import time
-        t0 = time.time()
-        PSA, PSV, SD = ins_resp_old(
-            st[0].data*100,
-            dt=st[0].stats.delta,
-            periods=sPeriod,
-            xi=0.05)
-        t1 = time.time()
-        dt1 = t1 - t0
-        print('dt_old = ', dt1)
 
         t0 = time.time()
         PSA, PSV, SD = ins_resp(
@@ -195,16 +186,15 @@ class TestCore(unittest.TestCase):
             periods=sPeriod,
             xi=0.05)
         t1 = time.time()
-        dt2 = t1 - t0
-        print('dt_new = ', dt2)
-        print('new/old =', dt2/dt1)
+        dt = t1 - t0
+        print('dt_new = ', dt)
 
         title =  str(st[0].stats.station + '.' + st[0].stats.channel)
-        #plotting(PSA, PSV, SD, sPeriod,
-                 #length_unit='in',
-                 #logplot=True,
-                 #saving='show_save',
-                 #title=title, )
+        plotting(PSA, PSV, SD, sPeriod,
+                 length_unit='in',
+                 logplot=True,
+                 saving='show_save',
+                 title=title, )
 
 if __name__ == '__main__':
     unittest.main()

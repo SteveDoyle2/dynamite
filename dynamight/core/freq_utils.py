@@ -1,5 +1,12 @@
-import numpy as np
+import os
 from itertools import count
+
+from numpy.linalg import pinv
+import numpy as np
+from scipy.linalg import expm
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import savefig
+
 
 def fft_to_psd_df(frequency: np.ndarray, fft_response: np.ndarray) -> np.ndarray:
     df = frequency[1] - frequency[0]
@@ -92,118 +99,9 @@ def _to_twosided_fsampling(fmax: float, df: float,
             fsampling = fmax * 2 + df
     return fsampling
 
-from scipy.linalg import expm
-import os
-from numpy.linalg import pinv
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import savefig
 
-
-def ins_resp_old(data, dt: float, periods=None,
-                 xi: float=0.05) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    The function generates:
-     - pseudo-spectral acceleration (PSA)
-     - pseudo-spectral velocity (PSV)
-     - spectral displacement (SD) spectra
-    for given damping ratio (xi).
-    Spectral ordinates are for linear-elastic single-degree-of-freedom
-    system with unit mass.
-
-
-    Reference:
-    Wang, L.J. (1996). Processing of near-field earthquake accelerograms:
-    Pasadena, California Institute of Technology.
-
-    This code is converted from Matlab code of Dr. Erol Kalkan, P.E.
-    Link:
-    https://www.mathworks.com/matlabcentral/fileexchange/57906-pseudo-spectral-acceleration--velocity-and-displacement-spectra?s_tid=prof_contriblnk
-
-    Pulled from: https://github.com/dertuncay/Response-Spectra/tree/master
-    modified to be a bit cleaner
-[]
-    Parameters
-    ----------
-    data    = numpy array type object (in acceleration (cm/s^2))
-    dt      = sampling interval
-    periods = spectral periods (Default: 0.01 to 10 seconds with 100 sample)
-    xi      = damping factor (Default: 0.05)
-
-    Returns
-    -------
-    PSA = Pseudo-spectral acceleration ordinates
-    PSV = Pseudo-spectral velocity ordinates
-    SD  = spectral displacement ordinates
-    """
-    if periods is None:
-        periods = np.array([
-            0.01,0.02,0.022,0.025,0.029,0.03,0.032,0.035,0.036,
-            0.04,0.042,0.044,0.045,0.046,0.048,0.05,0.055,0.06,0.065,0.067,0.07,
-            0.075,0.08,0.085,0.09,0.095,0.1,0.11,0.12,0.125,0.13,0.133,0.14,0.15,
-            0.16,0.17,0.18,0.19,0.2,0.22,0.24,0.25,0.26,0.28,0.29,0.3,0.32,0.34,
-            0.35,0.36,0.38,0.4,0.42,0.44,0.45,0.46,0.48,0.5,0.55,0.6,0.65,0.667,
-            0.7,0.75,0.8,0.85,0.9,0.95,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,
-            2,2.2,2.4,2.5,2.6,2.8,3,3.2,3.4,3.5,3.6,3.8,4,4.2,4.4,4.6,4.8,5,7.5,10])
-
-    A = []
-    Ae = []
-    AeB = []
-    displ_max = np.empty((len(periods)))
-    veloc_max = np.empty((len(periods)))
-    absacc_max = np.empty((len(periods)))
-    foverm_max = np.empty((len(periods)))
-    pseudo_acc_max = np.empty((len(periods)))
-    pseudo_veloc_max = np.empty((len(periods)))
-    PSA = np.empty((len(periods)))
-    PSV = np.empty((len(periods)))
-    SD = np.empty((len(periods)))
-
-    acc = data
-    #vel = data[0].integrate(method='cumtrapz')
-    #dist = data[0].integrate(method='cumtrapz')
-
-    """ Spectral solution """
-
-    omegans = 2 * np.pi / periods  # Angular frequency
-    Cs = 2 * xi * omegans # Two time of critical damping and angular freq.
-    Ks = omegans ** 2
-    for num, omegan, C, K in zip(count(), omegans, Cs, Ks):
-        y = np.zeros((2,len(acc)))
-        A = np.array([[0, 1], [-K, -C]])
-        Ae = expm(A*dt)
-        #temp_1 = Ae - np.eye(2, dtype=int)
-        temp_2 = np.dot(Ae-np.eye(2, dtype=int), pinv(A))
-        AeB = np.dot(temp_2, np.array([[0.0], [1.0]]))
-
-        for k in np.arange(1, len(acc)):
-            y[:,k] = np.reshape(
-                np.add(
-                    np.reshape(np.dot(Ae, y[:,k-1]), (2,1)),
-                    np.dot(AeB, acc[k])),
-                (2))
-
-        displ = np.transpose(y[0,:])          # Relative displacement vector (cm)
-        veloc = np.transpose(y[1,:])          # Relative velocity (cm/s)
-        foverm = (omegan**2) * displ          # Lateral resisting force over mass (cm/s^2)
-        absacc = -2*xi*omegan*veloc - foverm  # Absolute acceleration from equilibrium (cm/s^2)
-
-        """ Extract peak values """
-        displ_max[num] = max(abs(displ))    # Spectral relative displacement (cm)
-        veloc_max[num] = max(abs(veloc))    # Spectral relative velocity (cm/s)
-        absacc_max[num] = max(abs(absacc))  # Spectral absolute acceleration (cm/s^2)
-
-        foverm_max[num] = max(abs(foverm))              # Spectral value of lateral resisting force over mass (cm/s^2)
-        pseudo_acc_max[num] = displ_max[num]*omegan**2  # Pseudo spectral acceleration (cm/s^2)
-        pseudo_veloc_max[num] = displ_max[num]*omegan   # Pseudo spectral velocity (cm/s)
-
-        PSA[num] = pseudo_acc_max[num]    # PSA (cm/s2)
-        PSV[num] = pseudo_veloc_max[num]  # PSV (cm/s)
-        SD[num] = displ_max[num]          # SD  (cm)
-    return PSA, PSV, SD
-
-
-def ins_resp(data, dt: float, periods=None,
+def ins_resp(acceleration: np.ndarray,
+             dt: float, periods=None,
              xi: float=0.05) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     The function generates:
@@ -254,10 +152,7 @@ def ins_resp(data, dt: float, periods=None,
     veloc_max = np.empty(n, dtype='float64')
     absacc_max = np.empty(n, dtype='float64')
     foverm_max = np.empty(n, dtype='float64')
-    pseudo_acc_max = np.empty(n, dtype='float64')
-    pseudo_veloc_max = np.empty(n, dtype='float64')
 
-    acc = data
     #vel = data[0].integrate(method='cumtrapz')
     #dist = data[0].integrate(method='cumtrapz')
 
@@ -270,41 +165,35 @@ def ins_resp(data, dt: float, periods=None,
     A[:, 0, 1] = 1.
     A[:, 1, 0] = -K
     A[:, 1, 1] = -C
-    Aes = expm(A*dt)
+    Ae = expm(A*dt)
+    AeT = np.transpose(expm(A*dt), axes=[0, 2, 1])
     eye2 = np.eye(2, dtype=int)
-    Ae_eye2 = Aes - eye2
+    Ae_eye2 = Ae - eye2
     pinvA = pinv(A)
     temp2 = np.einsum('nij,njl->nil', Ae_eye2, pinvA)
 
     zero_one = np.array([[0.0], [1.0]])
     AeB = np.dot(temp2, zero_one)
 
-    nacc = len(data)
+    nacc = len(acceleration)
     ks = np.arange(1, nacc)
-    AeB_accels2 = np.einsum('nij,k->nkij', AeB, acc[ks])
-    for num, omegan, Ae, AeB_accels in zip(count(), omegans, Aes, AeB_accels2):
-        #A = np.array([[0, 1], [-K, -C]])
-        #assert np.allclose(A, Ai)
-        #Ae = expm(A*dt)
-        #assert np.allclose(Ae, Aei)
-        #pinvA = pinv(A)
-        #assert np.allclose(pinvA, pinvA)
-        #Ae_eye2 = Ae - eye2
-        #assert np.allclose(Ae_eye2, Ae_eye2i)
-        #temp2 = np.dot(Ae_eye2, pinvA)
-        #assert np.allclose(temp2, temp2i)
-        #AeB = np.dot(temp2, zero_one)
-        #assert np.allclose(AeB, AeBi)
-        #AeB_accels = np.einsum('ij,k->kij', AeB, acc[ks])
-        #assert np.allclose(AeB_accels, AeB_accelsi)
-
+    AeB_accels2 = np.einsum('nij,k->nkij', AeB, acceleration[ks])
+    AeB_accels3 = np.einsum('nij,k->nkji', AeB, acceleration[ks])
+    for i, omegan, Aei, AeTi, AeB_accels, AeB_accelsi in zip(count(), omegans, Ae, AeT, AeB_accels2, AeB_accels3):
+        assert np.allclose(Aei.T, AeTi)
         y = np.zeros((2, nacc))
-        for k, AeB_accel in zip(ks, AeB_accels):
-            #AeB_accel = np.dot(AeB, accel)
-            #AeB_accel = AeB * acc[k]
-            #assert np.allclose(AeB_accel, AeB_acceli)
-            AA = np.reshape(np.dot(Ae, y[:,k-1]), (2,1))
+        yi = y[:, 0].reshape(2, 1)
+        for k, AeB_accel, AeB_acceli in zip(ks, AeB_accels, AeB_accelsi):
+            # ix1 = ixj @ jx1
+            # 1xi = (ixj @ jx1)^T
+            aai = Aei @ yi
+            #AAi = yi.T @ Aei.T
+            AAi = Aei.T
+            AA = np.reshape(aai, (2,1))
+            #assert np.allclose(AA, AAi)
             yi = np.add(AA, AeB_accel)
+            yii = np.add(AAi, AeB_acceli)
+            assert np.allclose(yi.ravel(), yii.ravel())
             y[:,k] = yi.ravel()
         displ = y[0,:].ravel()                # Relative displacement vector (cm)
         veloc = y[1,:].ravel()                # Relative velocity (cm/s)
@@ -312,10 +201,10 @@ def ins_resp(data, dt: float, periods=None,
         absacc = -2*xi*omegan*veloc - foverm  # Absolute acceleration from equilibrium (cm/s^2)
 
         """ Extract peak values """
-        displ_max[num] = max(abs(displ))    # Spectral relative displacement (cm)
-        veloc_max[num] = max(abs(veloc))    # Spectral relative velocity (cm/s)
-        absacc_max[num] = max(abs(absacc))  # Spectral absolute acceleration (cm/s^2)
-        foverm_max[num] = max(abs(foverm))  # Spectral value of lateral resisting force over mass (cm/s^2)
+        displ_max[i] = max(abs(displ))    # Spectral relative displacement (cm)
+        veloc_max[i] = max(abs(veloc))    # Spectral relative velocity (cm/s)
+        absacc_max[i] = max(abs(absacc))  # Spectral absolute acceleration (cm/s^2)
+        foverm_max[i] = max(abs(foverm))  # Spectral value of lateral resisting force over mass (cm/s^2)
 
     pseudo_acc_max = displ_max*omegans**2  # Pseudo spectral acceleration (cm/s^2)
     pseudo_veloc_max = displ_max*omegans   # Pseudo spectral velocity (cm/s)
