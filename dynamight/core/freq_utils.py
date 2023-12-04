@@ -166,7 +166,7 @@ def ins_resp(acceleration: np.ndarray,
     A[:, 1, 0] = -K
     A[:, 1, 1] = -C
     Ae = expm(A*dt)
-    AeT = np.transpose(expm(A*dt), axes=[0, 2, 1])
+    #AeT = np.transpose(expm(A*dt), axes=[0, 2, 1])
     eye2 = np.eye(2, dtype=int)
     Ae_eye2 = Ae - eye2
     pinvA = pinv(A)
@@ -178,22 +178,19 @@ def ins_resp(acceleration: np.ndarray,
     nacc = len(acceleration)
     ks = np.arange(1, nacc)
     AeB_accels2 = np.einsum('nij,k->nkij', AeB, acceleration[ks])
-    AeB_accels3 = np.einsum('nij,k->nkji', AeB, acceleration[ks])
-    for i, omegan, Aei, AeTi, AeB_accels, AeB_accelsi in zip(count(), omegans, Ae, AeT, AeB_accels2, AeB_accels3):
-        assert np.allclose(Aei.T, AeTi)
+    #AeB_accels3 = np.einsum('nij,k->nkji', AeB, acceleration[ks])
+    for i, omegan, Aei, AeB_accels in zip(count(), omegans, Ae, AeB_accels2):
+        #assert np.allclose(Aei.T, AeTi)
         y = np.zeros((2, nacc))
         yi = y[:, 0].reshape(2, 1)
-        for k, AeB_accel, AeB_acceli in zip(ks, AeB_accels, AeB_accelsi):
+        for k, AeB_accel in zip(ks, AeB_accels):
             # ix1 = ixj @ jx1
             # 1xi = (ixj @ jx1)^T
             aai = Aei @ yi
             #AAi = yi.T @ Aei.T
-            AAi = Aei.T
+            #AAi = Aei.T @ yi.T
             AA = np.reshape(aai, (2,1))
-            #assert np.allclose(AA, AAi)
             yi = np.add(AA, AeB_accel)
-            yii = np.add(AAi, AeB_acceli)
-            assert np.allclose(yi.ravel(), yii.ravel())
             y[:,k] = yi.ravel()
         displ = y[0,:].ravel()                # Relative displacement vector (cm)
         veloc = y[1,:].ravel()                # Relative velocity (cm/s)
@@ -206,7 +203,7 @@ def ins_resp(acceleration: np.ndarray,
         absacc_max[i] = max(abs(absacc))  # Spectral absolute acceleration (cm/s^2)
         foverm_max[i] = max(abs(foverm))  # Spectral value of lateral resisting force over mass (cm/s^2)
 
-    pseudo_acc_max = displ_max*omegans**2  # Pseudo spectral acceleration (cm/s^2)
+    pseudo_acc_max = displ_max*K           # Pseudo spectral acceleration (cm/s^2)
     pseudo_veloc_max = displ_max*omegans   # Pseudo spectral velocity (cm/s)
 
     PSA = pseudo_acc_max    # PSA (cm/s2)

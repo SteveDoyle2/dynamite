@@ -8,6 +8,7 @@ import dynamight.core.fourier_transform as ft
 #import dynamight.core.time as time
 import dynamight.core.psd as dypsd # PowerSpectralDensity
 from dynamight.core.freq_utils import fft_to_psd_df
+from dynamight.core.srs import ShockResponseSpectra, time_to_srs
 
 
 class TimeSeries:
@@ -127,6 +128,11 @@ class TimeSeries:
             frequency, psd_response, label=self.label,
             sided=sided, is_onesided_center=is_onesided_center)
         return psd
+
+    def to_srs(self, Q: float=10.) -> srs.ShockResponseSpectra:
+        freq, srs_data = time_to_srs(self.time, self.response, Q)
+        shock = ShockResponseSpectra(freq, srs_data, Q, label=self.label)
+        return shock
 
     def plot(self, y_units: str='g', ifig: int=1,
              ax: Optional[plt.Axes]=None,
