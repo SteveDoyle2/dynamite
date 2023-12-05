@@ -129,9 +129,17 @@ class TimeSeries:
             sided=sided, is_onesided_center=is_onesided_center)
         return psd
 
-    def to_srs(self, Q: float=10.) -> srs.ShockResponseSpectra:
-        freq, srs_min, srs_max = time_to_srs(self.time, self.response, Q, fmax=10_000)
-        shock = ShockResponseSpectra(freq, srs_min, srs_max, Q, label=self.label)
+    def to_srs(self, fmin: float=1.0, fmax: float=1_000.,
+               Q: float=10.,
+               noctave: int=6) -> srs.ShockResponseSpectra:
+        freq, accel_neg, accel_pos, rel_disp_neg, rel_disp_pos = time_to_srs(
+            self.time, self.response, Q,
+            fmin=fmin, fmax=fmax, noctave=noctave)
+        shock = ShockResponseSpectra(
+            freq,
+            accel_neg, accel_pos,
+            #rel_disp_neg, rel_disp_pos,
+            Q, label=self.label)
         return shock
 
     def plot(self, y_units: str='g', ifig: int=1,

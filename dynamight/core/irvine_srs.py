@@ -63,9 +63,9 @@ class SRS:
         self.dt = dt
         self.sr = sr
 
-        self.iacc = 0
-        self.ipv = 0
-        self.ird = 0
+        self.iacc = False
+        self.ipv = False
+        self.ird = False
 
 
     @classmethod
@@ -101,9 +101,9 @@ class SRS:
             raise RuntimeError(noct)
 
         iresidual = 0
-        self.iacc = 1 # True
-        self.ipv = 2  #  False
-        self.ird = 2  # False
+        self.iacc = False # True
+        self.ipv = False  # False
+        self.ird = True   # False
         if 0:
             print(" ")
             print("  include residual:  1=yes 2=no ")
@@ -141,11 +141,11 @@ class SRS:
                 break
 
         self.num_fn = j
-        fff=self.fn
+        fff = self.fn
 
         temp = fff[0:self.num_fn]
         del fff
-        self.fn=temp
+        self.fn = temp
         del temp
 
     @classmethod
@@ -168,23 +168,23 @@ class SRS:
         rd_pos = zeros(self.num_fn)
         rd_neg = zeros(self.num_fn)
 
-        if self.iacc == 1:
+        if self.iacc:
             print(" ")
             print(" fn(Hz)  Positive Accel(G)  Negative Accel(G) ")
             x_pos, x_neg = SRS.accel_SRS(self)
 
-        for j in range(self.num_fn):
-            print ("%6.4g  %6.4g  %6.4g" % (self.fn[j],x_pos[j],x_neg[j]))
+            for j in range(self.num_fn):
+                print ("%6.4g  %6.4g  %6.4g" % (self.fn[j],x_pos[j],x_neg[j]))
 
 
-        if self.ipv==1 or self.ird==1:
+        if self.ipv or self.ird:
             rd_pos,rd_neg=SRS.rel_disp_SRS(self)
 
 #*******************************************************************************
         #   Pseudo Velocity
-        if self.ipv==1:
+        if self.ipv:
             for j in range(self.num_fn):
-                omega=2.*pi*self.fn[j]
+                omega = 2.*pi*self.fn[j]
                 pv_pos[j] = rd_pos[j] * omega
                 pv_neg[j] = rd_neg[j] * omega
 
@@ -200,21 +200,27 @@ class SRS:
             print (" ")
             print (" Find output dialog box")
 
-            if self.iacc==1:
+            if self.iacc:
                 root = tk.Tk(); root.withdraw()
-                output_file_path = asksaveasfilename(parent=root,title="Save the acceleration SRS as...")
+                output_file_path = asksaveasfilename(
+                    parent=root,
+                    title="Save the acceleration SRS as...")
                 output_file = output_file_path.rstrip('\n')
                 WriteData3(self.num_fn,self.fn,x_pos,x_neg,output_file)
 
-            if self.ipv==1:
+            if self.ipv:
                 root = tk.Tk(); root.withdraw()
-                output_file_path = asksaveasfilename(parent=root,title="Save the pseudo velocity SRS as...")
+                output_file_path = asksaveasfilename(
+                    parent=root,
+                    title="Save the pseudo velocity SRS as...")
                 output_file = output_file_path.rstrip('\n')
                 WriteData3(self.num_fn,self.fn,pv_pos,pv_neg,output_file)
 
-            if self.ird==1:
+            if self.ird:
                 root = tk.Tk(); root.withdraw()
-                output_file_path = asksaveasfilename(parent=root,title="Save the relative displacement SRS as...")
+                output_file_path = asksaveasfilename(
+                    parent=root,
+                    title="Save the relative displacement SRS as...")
                 output_file = output_file_path.rstrip('\n')
                 WriteData3(self.num_fn,self.fn,rd_pos,rd_neg,output_file)
 
@@ -232,17 +238,26 @@ class SRS:
 
 #*******************************************************************************
 
-        if self.iacc == 1:
+        if self.iacc:
             plt.figure(2)
-            srs_plot_pn(1,1,self.fn,x_pos,x_neg,self.damp,'accel_srs_plot')
+            srs_plot_pn(
+                1, 1,
+                self.fn, x_pos, x_neg,
+                self.damp, 'accel_srs_plot')
 
-        if self.ipv == 1:
+        if self.ipv:
             plt.figure(3)
-            srs_plot_pn(2,1,self.fn,pv_pos,pv_neg,self.damp,'pv_srs_plot')
+            srs_plot_pn(
+                2, 1,
+                self.fn, pv_pos, pv_neg,
+                self.damp, 'pv_srs_plot')
 
-        if self.ird == 1:
+        if self.ird:
             plt.figure(4)
-            srs_plot_pn(3,1,self.fn,rd_pos,rd_neg,self.damp,'rd_srs_plot')
+            srs_plot_pn(
+                3, 1,
+                self.fn, rd_pos, rd_neg,
+                self.damp, 'rd_srs_plot')
 
 #*******************************************************************************
 
@@ -280,47 +295,46 @@ class SRS:
         return pos, neg
 
     def rel_disp_SRS(self):
-        rd_pos=zeros(self.num_fn)
-        rd_neg=zeros(self.num_fn)
-        ac=zeros(3)
-        bc=zeros(3)
+        rd_pos = zeros(self.num_fn)
+        rd_neg = zeros(self.num_fn)
+        ac = zeros(3)
+        bc = zeros(3)
+        self.fn = np.array([10.])
+        for j in range(self.num_fn):
+            omega = 2.*pi*self.fn[j]
+            omegad = omega*sqrt(1.-(self.damp**2))
 
-        for j in range(0,self.num_fn):
+            E  = exp(  -self.damp*omega*self.dt)
+            E2 = exp(-2*self.damp*omega*self.dt)
 
-            omega=2.*pi*self.fn[j]
-            omegad=omega*sqrt(1.-(self.damp**2))
+            K = omegad*self.dt
+            C = E*cos(K)
+            S = E*sin(K)
 
-            E =exp(  -self.damp*omega*self.dt)
-            E2=exp(-2*self.damp*omega*self.dt)
+            Omr = omega / omegad
+            Omt = omega*self.dt
 
-            K=omegad*self.dt
-            C=E*cos(K)
-            S=E*sin(K)
+            P = 2*self.damp**2-1
 
-            Omr=(omega/omegad)
-            Omt=omega*self.dt
+            b00 = 2*self.damp*(C-1)
+            b01 = S*Omr*P
+            b02 = Omt
 
-            P=2*self.damp**2-1
+            b10 = -2*Omt*C
+            b11 = 2*self.damp*(1-E2)
+            b12 = -2*b01
 
-            b00=2*self.damp*(C-1)
-            b01=S*Omr*P
-            b02=Omt
+            b20 = (2*self.damp+Omt)*E2
+            b21 = b01
+            b22 = -2*self.damp*C
 
-            b10=-2*Omt*C
-            b11= 2*self.damp*(1-E2)
-            b12=-2*b01
+            bc[0] = b00 + b01 + b02
+            bc[1] = b10 + b11 + b12
+            bc[2] = b20 + b21 + b22
 
-            b20=(2*self.damp+Omt)*E2
-            b21= b01
-            b22=-2*self.damp*C
+            bc = -bc/(omega**3*self.dt)
 
-            bc[0]=b00+b01+b02
-            bc[1]=b10+b11+b12
-            bc[2]=b20+b21+b22
-
-            bc=-bc/(omega**3*self.dt)
-
-            ac=SRS.a_coeff(omega,self.damp,self.dt)
+            ac = SRS.a_coeff(omega, self.damp, self.dt)
 
             resp=lfilter(bc, ac, self.b, axis=-1, zi=None)
 

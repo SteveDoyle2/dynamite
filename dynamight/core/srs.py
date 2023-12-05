@@ -137,7 +137,7 @@ def time_to_srs(time: np.ndarray,
                 Q: float,
                 fmin: float=1.0,
                 fmax: float=1000.0,
-                noctave: int=3) -> tuple[np.ndarray, np.ndarray]:
+                noctave: int=6) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     https://www.vibrationdata.com/tutorials_alt/Ahlin_SRS.pdf
     """
@@ -145,6 +145,7 @@ def time_to_srs(time: np.ndarray,
     dt = time[1] - time[0]
 
     fn = octave_spacing(fmin, fmax, noctave=noctave)
+    #fn = np.array([10.])
     nfreq = len(fn)
 
     omega = 2. * np.pi * fn
@@ -152,24 +153,6 @@ def time_to_srs(time: np.ndarray,
 
     # ------------------------------------------------------
     # accel SRS
-
-    #  bc coefficients are applied to the excitation
-    Q2 = Q ** 2
-    A = omega * dt / (2 * Q)
-    B = omega * dt * np.sqrt(1 - 1 / (4*Q2))
-    #C = (2 * Q2 - 1) / np.sqrt(4*Q2-1)
-    ema = np.exp(-A)
-    em2a = np.exp(-2*A)
-    b0 = 1 - ema * np.sin(B) / B
-    b1 = 2 * ema * (np.sin(B) / B - np.cos(B))
-    b2 = em2a - ema * np.sin(B) / B
-    a1 = -2 * ema * np.cos(B)
-    a2 = em2a
-    #b0 = 2 * A
-    #b1 = 2 * A * ema * (C * np.sin(B) - np.cos(B))
-    #a1 = -2 * ema * np.cos(B)
-    #a2 = np.exp(-2*A)
-
     E = np.exp(-damp*omega*dt)
     K = omegad*dt
     C = E*np.cos(K)
@@ -180,23 +163,18 @@ def time_to_srs(time: np.ndarray,
     bc_accel[:, 0] = 1. - Sp
     bc_accel[:, 1] = 2. * (Sp-C)
     bc_accel[:, 2] = E**2 - Sp
-    #bc = bc_accel # .flatten()
-    ac = a_coeff(omega, damp, dt) # .flatten()
-
-    b = np.array([b0, b1, b2]).flatten()
-    a = np.array([np.ones(nfreq), a1, a2]).flatten()
-    x = 1
+    ac = a_coeff(omega, damp, dt)
 
     # ------------------------------------------------------
-    if 0:
+    if 1:
         # rel_disp_SRS
 
-        E1 = np.exp(  -damp*omega*dt)
+        #E1 = np.exp(  -damp*omega*dt)
         E2 = np.exp(-2*damp*omega*dt)
 
-        K = omegad*dt
-        C = E1 * np.cos(K)
-        S = E1 * np.sin(K)
+        #K = omegad*dt
+        #C = E1 * np.cos(K)
+        #S = E1 * np.sin(K)
         Omr = omega / omegad
         Omt = omega * dt
         P = 2*damp**2 - 1
@@ -213,41 +191,50 @@ def time_to_srs(time: np.ndarray,
         b21 = b01
         b22 = -2*damp*C
 
+        bi = -omega**3 * dt
         b0 = b00 + b01 + b02
         b1 = b10 + b11 + b12
         b2 = b20 + b21 + b22
-        b_disp = np.column_stack([b0, b1, b2])
+        bc_disp = np.column_stack([b0, b1, b2]) / bi[:, np.newaxis]
 
     #---------------------------------------------------------
     ac = a_coeff(omega, damp, dt)
 
     nresponse = response.shape[1]
-    rd_pos = np.zeros((nfreq, nresponse), dtype='float64')
-    rd_neg = np.zeros((nfreq, nresponse), dtype='float64')
+    accel_pos = np.zeros((nfreq, nresponse), dtype='float64')
+    accel_neg = np.zeros((nfreq, nresponse), dtype='float64')
 
-    for ifreq, bci, aci in zip(count(), bc_accel, ac):
-        #bci = -bc / (omega**3 * dt)  # rel-disp
-        #ac = a_coeff(omega, damp, dt)
+    rel_disp_pos = np.zeros((nfreq, nresponse), dtype='float64')
+    rel_disp_neg = np.zeros((nfreq, nresponse), dtype='float64')
+
+    plot_curves = False
+    if plot_curves:
+        fig = plt.figure()
+        ax = fig.gca()
+        #ax.plot(time, response, label='input')
+
+    for ifreq, bci, bcdi, aci in zip(count(), bc_accel, bc_disp, ac):
         for iresp in range(nresponse):
             responsei = response[:, iresp]
             resp = lfilter(bci, aci, responsei, axis=-1, zi=None)
-            rd_pos[ifreq, iresp] = max(resp)
-            rd_neg[ifreq, iresp] = abs(min(resp))
+            accel_pos[ifreq, iresp] = max(resp)
+            accel_neg[ifreq, iresp] = abs(min(resp))
 
-        if 0:
-            #fn = 10
-            #bc = array([ 1.10753612e-04,  3.21565544e-06, -1.09133695e-04])
-            #ac = array([ 1.        , -1.99977528,  0.99978011])
-            fig = plt.figure()
-            ax = fig.gca()
-            ax.plot(time, response, label='input')
-            ax.plot(time, resp, label='output')
-            ax.grid()
-            ax.legend()
-            plt.show()
+            resp = lfilter(bcdi, aci, responsei, axis=-1, zi=None)
+            rel_disp_pos[ifreq, iresp] = max(resp)
+            rel_disp_neg[ifreq, iresp] = abs(min(resp))
+
+            if plot_curves:
+                ax.plot(time, resp, label=f'output (fn={fn[ifreq]:g}')
+    if plot_curves:
+        ax.grid('which=both')
+        ax.legend()
+        plt.show()
 
     frequency = fn
-    return frequency, rd_pos, rd_neg
+    #rd_neg *= 386.
+    #rd_pos *= 386.
+    return frequency, accel_neg, accel_pos, rel_disp_neg, rel_disp_pos
 
 def half_sine_pulse(ymax: float,
                     tmax: float,
