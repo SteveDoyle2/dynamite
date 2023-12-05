@@ -10,6 +10,8 @@ from dynamight.core.freq_utils import _to_twosided_fsampling
 from dynamight.core.time import TimeSeries
 from dynamight.core.psd import PowerSpectralDensity
 from dynamight.core.freq_utils import ins_resp, plotting
+from dynamight.core.srs import octave_spacing, half_sine_pulse
+
 
 class TestCore(unittest.TestCase):
     def test_1(self):
@@ -169,11 +171,15 @@ class TestCore(unittest.TestCase):
 
         #ntimes = len(time_response)
         #time = np.arange(ntimes) * dt
-        ymax = 10.
-        tmax = 0.05
-        tpulse = 0.11
-        ntimes = 1001
-        time, response = half_sine_pulse(ymax, tpulse, tmax, ntimes)
+        fmin = 1
+        fmax = 10_000
+        #freqs = octave_spacing(fmin, fmax, noctave=3)
+        #assert len(freqs) == 20, freqs
+        ymax = 1.
+        tmax = 0.35
+        tpulse = 0.011
+        ntimes = 10001
+        time, response = half_sine_pulse(ymax, tmax, tpulse, ntimes)
         time_series = TimeSeries(time, response, label='shock')
         #time_series.plot()
         srs_series = time_series.to_srs()
@@ -215,17 +221,6 @@ class TestCore(unittest.TestCase):
                  logplot=True,
                  saving='show_save',
                  title=title, )
-
-def half_sine_pulse(ymax: float,
-                    tmax: float,
-                    tpulse: float,
-                    ntimes: 101) -> np.ndarray:
-    assert tpulse < tmax
-    pulse_freq = 1 / tpulse
-    t = np.linspace(0., tmax, num=ntimes)
-    response = np.sin(np.pi*pulse_freq*t) * ymax
-    response[t > tpulse] = 0.
-    return t, response
 
 if __name__ == '__main__':
     unittest.main()

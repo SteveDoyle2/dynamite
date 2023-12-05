@@ -130,8 +130,8 @@ class TimeSeries:
         return psd
 
     def to_srs(self, Q: float=10.) -> srs.ShockResponseSpectra:
-        freq, srs_data = time_to_srs(self.time, self.response, Q)
-        shock = ShockResponseSpectra(freq, srs_data, Q, label=self.label)
+        freq, srs_min, srs_max = time_to_srs(self.time, self.response, Q, fmax=10_000)
+        shock = ShockResponseSpectra(freq, srs_min, srs_max, Q, label=self.label)
         return shock
 
     def plot(self, y_units: str='g', ifig: int=1,
