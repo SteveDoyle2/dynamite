@@ -100,10 +100,12 @@ def _to_twosided_fsampling(fmax: float, df: float,
     return fsampling
 
 
-def ins_resp(acceleration: np.ndarray,
-             dt: float, periods=None,
-             xi: float=0.05) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def pseudo_response_spectra(acceleration: np.ndarray,
+                            dt: float, periods=None,
+                            Q: float=10) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
+    What does ins_resp stand for?  Instaneous Response?  response_spectra was the OG name
+
     The function generates:
      - pseudo-spectral acceleration (PSA)
      - pseudo-spectral velocity (PSV)
@@ -126,16 +128,25 @@ def ins_resp(acceleration: np.ndarray,
 
     Parameters
     ----------
-    data    = numpy array type object (in acceleration (cm/s^2))
-    dt      = sampling interval
-    periods = spectral periods (Default: 0.01 to 10 seconds with 100 sample)
-    xi      = damping factor (Default: 0.05)
+    data : np.ndarray
+        acceleration (cm/s^2)
+    dt : float
+        sampling interval
+    periods: np.ndarray
+        spectral periods (Default: 0.01 to 10 seconds with 100 samples)
+    Q : float; default=10.0
+        amplifcation factor; xi = 1/(2Q)
+        where xi is the fraction of critical damping
 
     Returns
     -------
-    PSA = Pseudo-spectral acceleration ordinates
-    PSV = Pseudo-spectral velocity ordinates
-    SD  = spectral displacement ordinates
+    PSA : np.ndarray
+        Pseudo-spectral acceleration ordinates
+    PSV : np.ndarray
+        Pseudo-spectral velocity ordinates
+    SD : np.ndarray
+        spectral displacement ordinates
+
     """
     if periods is None:
         periods = np.array([
@@ -158,6 +169,7 @@ def ins_resp(acceleration: np.ndarray,
 
     """ Spectral solution """
 
+    xi = 1 / (2 * Q)
     omegans = 2 * np.pi / periods  # Angular frequency
     C = 2 * xi * omegans # Two time of critical damping and angular freq.
     K = omegans ** 2
@@ -197,7 +209,7 @@ def ins_resp(acceleration: np.ndarray,
         foverm = (omegan**2) * displ          # Lateral resisting force over mass (cm/s^2)
         absacc = -2*xi*omegan*veloc - foverm  # Absolute acceleration from equilibrium (cm/s^2)
 
-        """ Extract peak values """
+        # Extract peak values
         displ_max[i] = max(abs(displ))    # Spectral relative displacement (cm)
         veloc_max[i] = max(abs(veloc))    # Spectral relative velocity (cm/s)
         absacc_max[i] = max(abs(absacc))  # Spectral absolute acceleration (cm/s^2)

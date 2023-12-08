@@ -9,7 +9,7 @@ from dynamight.core.read_data import read_sec
 from dynamight.core.freq_utils import _to_twosided_fsampling
 from dynamight.core.time import TimeSeries
 from dynamight.core.psd import PowerSpectralDensity
-from dynamight.core.freq_utils import ins_resp, plotting
+from dynamight.core.freq_utils import pseudo_response_spectra, plotting
 from dynamight.core.srs import octave_spacing, half_sine_pulse
 
 
@@ -183,7 +183,16 @@ class TestCore(unittest.TestCase):
         time_series = TimeSeries(time, response, label='shock')
         #time_series.plot()
         srs_series = time_series.to_srs()
-        srs_series.plot()
+        #srs_series.plot_srs_accel(show=False)
+        #srs_series.plot_pseudo_displacement_srs(show=False)
+
+        fig = plt.figure()
+        ax1, ax2, ax3, ax4 = fig.subplots(nrows=4)
+        srs_series.plot_srs_accel(show=False, ax=ax1)
+        srs_series.plot_pseudo_displacement_srs(show=False, ax=ax2)
+        srs_series.plot_pseudo_velocity_srs(show=False, ax=ax3)
+        srs_series.plot_pseudo_accel_srs(show=False, ax=ax4)
+        plt.show()
         x = 1
 
     def test_plot_psv(self):
@@ -205,12 +214,30 @@ class TestCore(unittest.TestCase):
         #st[0].detrend(type='simple')
         #st[0].taper(max_percentage=0.05,type='hann')
 
+        dt = st[0].stats.delta
+
+
+        #time, response = half_sine_pulse(ymax, tmax, tpulse, ntimes)
+        response = st[0].data*100
+        ntimes = len(response)
+        time_array = np.arange(ntimes) * dt
+        time_series = TimeSeries(time_array, response, label='shock')
+        srs_series = time_series.to_srs(fmin=0.01, fmax=10.)
+
+        fig = plt.figure(10)
+        ax1, ax2, ax3, ax4 = fig.subplots(nrows=4)
+        srs_series.plot_srs_accel(show=False, ax=ax1)
+        srs_series.plot_pseudo_displacement_srs(show=False, ax=ax2)
+        srs_series.plot_pseudo_velocity_srs(show=False, ax=ax3)
+        srs_series.plot_pseudo_accel_srs(show=False, ax=ax4)
+        #plt.show()
+
         t0 = time.time()
-        PSA, PSV, SD = ins_resp(
-            st[0].data*100,
-            dt=st[0].stats.delta,
+        PSA, PSV, SD = pseudo_response_spectra(
+            response,
+            dt=dt,
             periods=sPeriod,
-            xi=0.05)
+            Q=10.)
         t1 = time.time()
         dt = t1 - t0
         print('dt_new = ', dt)

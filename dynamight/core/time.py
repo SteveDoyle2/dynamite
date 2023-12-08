@@ -131,15 +131,22 @@ class TimeSeries:
 
     def to_srs(self, fmin: float=1.0, fmax: float=1_000.,
                Q: float=10.,
-               noctave: int=6) -> srs.ShockResponseSpectra:
+               noctave: int=6,
+               calc_accel_srs: bool=True,
+               calc_rel_disp_srs: bool=True) -> srs.ShockResponseSpectra:
         freq, accel_neg, accel_pos, rel_disp_neg, rel_disp_pos = time_to_srs(
             self.time, self.response, Q,
             fmin=fmin, fmax=fmax, noctave=noctave)
         shock = ShockResponseSpectra(
-            freq,
-            accel_neg, accel_pos,
-            #rel_disp_neg, rel_disp_pos,
-            Q, label=self.label)
+            freq, Q,
+            label=self.label,
+            srs_min=accel_neg,
+            srs_max=accel_pos,
+            rel_disp_min=rel_disp_neg,
+            rel_disp_max=rel_disp_pos,
+            #calc_accel_srs=calc_accel_srs,
+            #calc_rel_disp_srs=calc_rel_disp_srs,
+        )
         return shock
 
     def plot(self, y_units: str='g', ifig: int=1,
