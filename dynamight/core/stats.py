@@ -1,6 +1,29 @@
 import numpy as np
 from scipy.stats import norm
 
+def half_power_bandwidth(fmid: float,
+                         flower: float,
+                         fupper: float) -> float:
+    """https://endaq.com/pages/power-spectral-density"""
+    df = fupper - flower
+    Q = fmid / df
+    return Q
+
+#def stats():
+    #return kurtosis, skew, crest_factor, skewness, rms, mini, maxi
+
+def psd_db_scale(response: np.ndarray,
+                 dB: float) -> np.ndarray:
+    """6 dB = 4x"""
+    scale = 10 ** (dB / 10)
+    return response * scale
+
+def grms_srs_db_scale(response: np.ndarray,
+                 dB: float) -> np.ndarray:
+    """3 dB = 2x"""
+    scale = 20 ** (dB / 10)
+    return response * scale
+
 def bessel_correction(frequency: np.ndarray,
                       responses: np.ndarray,
                       nsamples: int=0,

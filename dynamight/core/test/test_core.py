@@ -14,6 +14,75 @@ from dynamight.core.srs import octave_spacing, half_sine_pulse
 
 
 class TestCore(unittest.TestCase):
+    def test_grms1(self):
+        # FEMCI
+        frequency = np.array([20., 30.])
+        psd_response = np.array([1.0, 1.1])
+
+        psd_series = PowerSpectralDensity(
+            frequency, psd_response,
+            is_onesided_center=False,
+            #label=['Navmat P-9402'])
+            label=['Tom'])
+        grms = psd_series.grms()
+        assert np.allclose(grms, 3.24434459), grms
+
+        # FEMCI excel spreadsheet
+        frequency = np.array([20., 100., 600., 2000.])
+        psd_response = np.array([0.01, 0.05, 0.05, 0.01])
+
+        psd_series = PowerSpectralDensity(
+            frequency, psd_response,
+            is_onesided_center=False,
+            label=['FEMCI Excel'])
+        grms = psd_series.grms()
+        assert np.allclose(grms, 7.55603222), grms
+
+        # constant
+        frequency = np.array([20., 40.])
+        psd_response = np.array([1.0, 1.0])
+
+        psd_series = PowerSpectralDensity(
+            frequency, psd_response,
+            is_onesided_center=False,
+            label=['Tom'])
+        grms = psd_series.grms()
+        assert np.allclose(grms, 4.47213595), grms
+
+    def test_grms2(self):
+        frequency = np.array([20., 80., 350., 2000.])
+        psd_response = np.array([0.01, 0.04, 0.04, 0.01])
+        psd_series = PowerSpectralDensity(
+            frequency, psd_response,
+            is_onesided_center=False,
+            label=['Tom'])
+        grms = psd_series.grms()
+        assert np.allclose(grms, 6.45137958), grms
+
+    def test_grms3(self):
+        """
+        https://www.vibrationdata.com/Course_Units/UNIT7D.pdf
+        """
+        frequency = np.array([10., 100., 1000., 2000.])
+        psd_response = np.array([0.002, 0.04, 0.04, 0.02])
+
+        psd_series = PowerSpectralDensity(
+            frequency, psd_response,
+            is_onesided_center=False,
+            label=['Tom1'])
+        grms = psd_series.grms()
+        assert np.allclose(grms, 8.09046027), grms  #  8.09
+
+        frequency = np.array([10., 200., 500., 2000.])
+        psd_response = np.array([0.001, 0.08, 0.08, 0.02])
+        psd_series = PowerSpectralDensity(
+            frequency, psd_response,
+            is_onesided_center=False,
+            #label=['Navmat P-9402'])
+            label=['Tom2'])
+        grms = psd_series.grms()
+        assert np.allclose(grms, 9.27062562), grms  # 9.3
+
     def test_1(self):
         time = np.linspace(0., 1., num=101)
         time_response = 2 * np.sin(time)

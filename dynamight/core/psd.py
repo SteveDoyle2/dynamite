@@ -203,6 +203,35 @@ class PowerSpectralDensity:
         out.df
         return out
 
+    def grms(self) -> np.ndarray:
+        nresponse = self.response.shape[1]
+        log2 = np.log10(2)
+        ten_log2 = 10 * log2
+        fhigh = self.frequency[1:]
+        flow = self.frequency[:-1]
+        fhigh_flow = fhigh / flow
+        noctaves = np.log10(fhigh_flow) / log2
+        grms = np.zeros(nresponse, dtype='float64')
+        for iresponse in range(nresponse):
+            psd_high = self.response[1:, iresponse]
+            psd_low = self.response[:-1, iresponse]
+
+            db = 10 * np.log10(psd_high / psd_low)
+            m = db / noctaves # [:, np.newaxis]
+            #m = db / noctaves[:, np.newaxis]
+            exp = m / ten_log2
+            #A = ten_log2 * psd_high / (10 * log2 + m) * (fhigh[:, np.newaxis] - flow[:, np.newaxis] * (flow[:, np.newaxis] / fhigh[:, np.newaxis]) ** exp)
+            A = ten_log2 * psd_high / (10 * log2 + m) * (fhigh - flow * (flow / fhigh) ** exp)
+
+            is_close = np.isclose(m, -ten_log2)
+            if is_close.sum():
+                A[is_close] = psd_low[is_close] * flow[is_close] * np.log(fhigh_flow[is_close])
+            grmsi = np.sqrt(A.sum())
+            #grms = grmsi.sum(axis=0)
+            grms[iresponse] = grmsi
+        assert len(grms) == nresponse
+        return grms
+
     def resample(self, frequency: np.ndarray, inplace: bool=True):
         """uses a log-log interp"""
         # TODO: get rid of for loop
