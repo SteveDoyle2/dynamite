@@ -22,7 +22,6 @@ class TestCore(unittest.TestCase):
         psd_series = PowerSpectralDensity(
             frequency, psd_response,
             is_onesided_center=False,
-            #label=['Navmat P-9402'])
             label=['Tom'])
         grms = psd_series.grms()
         assert np.allclose(grms, 3.24434459), grms
@@ -48,16 +47,23 @@ class TestCore(unittest.TestCase):
             label=['Tom'])
         grms = psd_series.grms()
         assert np.allclose(grms, 4.47213595), grms
+        df = frequency[1] - frequency[0]
+        area = df * 1.0
+        grms_expected = area ** 0.5
+        assert np.allclose(grms, grms_expected)
 
     def test_grms2(self):
+        """https://endaq.com/pages/power-spectral-density"""
         frequency = np.array([20., 80., 350., 2000.])
-        psd_response = np.array([0.01, 0.04, 0.04, 0.01])
+        # not 100% sure on the last psd value, but it's <0.01
+        # and 0.007 seems to work out with the expected grms
+        psd_response = np.array([0.01, 0.04, 0.04, 0.007])
         psd_series = PowerSpectralDensity(
             frequency, psd_response,
             is_onesided_center=False,
-            label=['Tom'])
+            label=['Navmat P-9402'])
         grms = psd_series.grms()
-        assert np.allclose(grms, 6.45137958), grms
+        assert np.allclose(grms, 6.05818209), grms
 
     def test_grms3(self):
         """
@@ -83,7 +89,7 @@ class TestCore(unittest.TestCase):
         grms = psd_series.grms()
         assert np.allclose(grms, 9.27062562), grms  # 9.3
 
-    def test_1(self):
+    def test_time_response(self):
         time = np.linspace(0., 1., num=101)
         time_response = 2 * np.sin(time)
         resp = TimeSeries(time, time_response, label='cat')
