@@ -254,8 +254,18 @@ class PowerSpectralDensity:
             plt.show()
 
 
-def get_grms(frequency: np.ndarray, response: np.ndarray) -> np.ndarray:
+def get_grms(frequency: np.ndarray,
+             response: np.ndarray) -> np.ndarray:
     """
+    Calculates GRMS from a PSD
+
+    Parameters
+    ----------
+    frequency (nfreq,) float array
+        frequencies
+    response: (nfreq, nresponse) float array
+        the PSD acceleration response
+
     https://femci.gsfc.nasa.gov/random/randomgrms.html
     """
     nresponse = response.shape[1]
@@ -267,22 +277,22 @@ def get_grms(frequency: np.ndarray, response: np.ndarray) -> np.ndarray:
     fhigh_flow = fhigh / flow
     noctaves = np.log10(fhigh_flow) / log2
 
-    psd_highs = response[1:, :]
-    psd_lows = response[:-1, :]
-    dbs = 10 * np.log10(psd_highs / psd_lows)
-    ms = dbs / noctaves[:, np.newaxis]
-    exps = ms / ten_log2
-    is_closes = np.isclose(ms, -ten_log2)
-    not_closes = ~is_closes
-    As = np.zeros(psd_highs.shape, dtype=psd_highs.dtype)
+    psd_high = response[1:, :]
+    psd_low = response[:-1, :]
+    db = 10 * np.log10(psd_high / psd_low)
+    m = db / noctaves[:, np.newaxis]
+    exp = m / ten_log2
+    is_close = np.isclose(m, -ten_log2)
+    not_close = ~is_close
 
-    As[not_closes] = ten_log2 * psd_highs[not_closes] / (ten_log2 + ms[not_closes]) * \
-        (fhigh[:, np.newaxis][not_closes] - flow[:, np.newaxis][not_closes] * (flow_fhigh[:, np.newaxis][not_closes]) ** exps[not_closes])
+    A = np.zeros(psd_high.shape, dtype=psd_high.dtype)
+    A[not_close] = ten_log2 * psd_high[not_close] / (ten_log2 + m[not_close]) * \
+        (fhigh[:, np.newaxis][not_close] - flow[:, np.newaxis][not_close] * (flow_fhigh[:, np.newaxis][not_close]) ** exp[not_close])
 
-    if is_closes.sum():
-        As[is_closes] = psd_lows[is_closes] * flow[:, np.newaxis][is_closes] * np.log(fhigh_flow[:, np.newaxis][is_closes])
+    if is_close.sum():
+        A[is_close] = psd_low[is_close] * flow[:, np.newaxis][is_close] * np.log(fhigh_flow[:, np.newaxis][is_close])
 
-    Asum = As.sum(axis=0)
+    Asum = A.sum(axis=0)
     grms = np.sqrt(Asum)
     assert len(grms) == nresponse
     return grms
