@@ -41,10 +41,12 @@ def build_actions_dict(parent,
     #actions_dict['toolbar'] = parent.toolbar.toggleViewAction()
     actions_dict['res_dock'] = parent.res_dock_widget.toggleViewAction()
     actions_dict['log_dock'] = parent.log_dock_widget.toggleViewAction()
+    actions_dict['analyze_dock'] = parent.analyze_dock_widget.toggleViewAction()
 
     #actions_dict['toolbar'].setStatusTip('Show/Hide application toolbar')
-    actions_dict['res_dock'].setStatusTip('Show/Hide results selection')
-    actions_dict['log_dock'].setStatusTip('Show/Hide log_dock')
+    actions_dict['res_dock'].setStatusTip('Show/Hide Results dock')
+    actions_dict['log_dock'].setStatusTip('Show/Hide Log dock')
+    actions_dict['analyze_dock'].setStatusTip('Show/Hide Analyze dock')
     return actions_dict
 
 def build_menu_bar(parent,
@@ -68,6 +70,7 @@ def add_actions(parent,
                 action_names,
                 actions_dict: dict[str, QAction]) -> None:
     for action_name in action_names:
+        assert action_name != '-', action_name
         if action_name == '':
             menu.addSeparator()
             continue

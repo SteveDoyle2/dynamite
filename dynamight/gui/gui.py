@@ -1,7 +1,7 @@
-import os
+#import os
 import sys
 from functools import partial
-from typing import Callable, Optional
+#from typing import Callable, Optional
 
 import numpy as np
 
@@ -14,9 +14,12 @@ from matplotlib.figure import Figure
 
 from qtpy.QtWidgets import (
     QApplication, QMainWindow,
-    QLabel, QTextEdit, QRadioButton, QComboBox, QTabBar,
-    QWidget, QVBoxLayout, QGridLayout, QHBoxLayout, QTabWidget, QAction, QMenuBar,
-    QStatusBar, QMenu, QTreeView, QPushButton, QDockWidget, QLineEdit, QDoubleSpinBox
+    #QLabel, QTextEdit, QRadioButton, QComboBox, QTabBar,
+    QWidget, QVBoxLayout, # QGridLayout, QHBoxLayout,
+    QTabWidget, # QAction,
+    QMenuBar,
+    QStatusBar, # QMenu, QTreeView, QPushButton,
+    QDockWidget, # QLineEdit, QDoubleSpinBox
 )
 from qtpy import QtGui
 import qtpy.QtCore as QtCore
@@ -26,122 +29,18 @@ from pyNastran.gui.menus.menus import (
     ApplicationLogWidget,
     #PythonConsoleWidget,
 )
+#from pyNastran.gui.menus.about.about import AboutWindow
+
+from dynamight.gui.about_window import AboutWindow
 from pyNastran.gui.utils.qt.pydialog import PyDialog, QFloatEdit, set_combo_box_text
 from dynamight.gui.qactions import build_actions_dict, build_menu_bar
 from dynamight.gui.sidebar import Sidebar2
 from dynamight.gui.trim_widget import TrimWidget
+from dynamight.gui.psd_widget import PsdWidget
+from dynamight.gui.srs_widget import SrsWidget
 from dynamight.core.time import TimeSeries
 from dynamight.core.psd import PowerSpectralDensity
 from dynamight.core.srs import ShockResponseSpectra
-
-class PsdWidget(QWidget):
-    def __init__(self, parent):
-        super().__init__()
-
-        self.parent = parent
-
-        grid = QGridLayout(parent)
-        window_size_label = QLabel('window_size (sec)')
-
-        #self.text_edit = QLineEdit('-0.1 0.5; 4. 5.;')
-        self.window_size_edit = QFloatEdit('1.0')
-
-        window_label = QLabel('Window:')
-        self.window_pulldown = QComboBox(parent)
-        self.window_pulldown.addItems(['hann', 'Hamming', 'Boxcar'])
-
-        overlap_label = QLabel('Overlap:')
-        self.overlap_spinner = QDoubleSpinBox(parent)
-        self.overlap_spinner.setValue(0.5)
-        self.overlap_spinner.setDecimals(3)
-        self.overlap_spinner.setMinimum(0.0)
-        self.overlap_spinner.setMaximum(1.0)
-
-        irow = 0
-        grid.addWidget(window_size_label, irow, 0)
-        grid.addWidget(self.window_size_edit, irow, 1)
-        irow += 1
-
-        grid.addWidget(window_label, irow, 0)
-        grid.addWidget(self.window_pulldown, irow, 1)
-        irow += 1
-
-        grid.addWidget(overlap_label, irow, 0)
-        grid.addWidget(self.overlap_spinner, irow, 1)
-        irow += 1
-
-
-        self.apply_button = QPushButton('Apply')
-
-        vbox = QVBoxLayout(parent)
-        vbox.addLayout(grid)
-        vbox.addWidget(self.apply_button)
-        self.setLayout(vbox)
-        self.apply_button.clicked.connect(self.on_apply)
-
-    def on_apply(self):
-        window_size = float(self.window_size_edit.text())
-        window = self.window_pulldown.currentText()
-        overlap = self.overlap_spinner.value()
-        #sline = text.split(';')
-        #trims = []  # inclusive
-        #for slinei in sline:
-            #slinei = slinei.strip()
-            #if len(slinei) == 0:
-                #continue
-            #mini, maxi = slinei.split(' ')
-            #min_float = float(mini)
-            #max_float = float(maxi)
-            #trim = [min_float, max_float]
-            #trims.append(trim)
-        self.parent.log_info(f'window_size={window_size}; window={window!r}')
-        self.parent.on_analyze_psd(window, window_size, overlap)
-
-
-class SrsWidget(QWidget):
-    def __init__(self, parent):
-        super().__init__()
-
-        self.parent = parent
-
-        grid = QGridLayout(parent)
-
-        fmin_label = QLabel('Freq Min (Hz):')
-        self.fmin_edit = QFloatEdit('10.0')
-
-        fmax_label = QLabel('Freq Max (Hz):')
-        self.fmax_edit = QFloatEdit('2000.')
-
-        q_label = QLabel('Q')
-        self.q_edit = QFloatEdit('10.0')
-
-        irow = 0
-        grid.addWidget(fmin_label, irow, 0)
-        grid.addWidget(self.fmin_edit, irow, 1)
-        irow += 1
-
-        grid.addWidget(fmax_label, irow, 0)
-        grid.addWidget(self.fmax_edit, irow, 1)
-        irow += 1
-
-        grid.addWidget(q_label, irow, 0)
-        grid.addWidget(self.q_edit, irow, 1)
-        irow += 1
-
-        self.apply_button = QPushButton('Apply')
-
-        vbox = QVBoxLayout(parent)
-        vbox.addLayout(grid)
-        vbox.addWidget(self.apply_button)
-        self.setLayout(vbox)
-        self.apply_button.clicked.connect(self.on_apply)
-
-    def on_apply(self):
-        fmin = float(self.fmin_edit.text())
-        fmax = float(self.fmax_edit.text())
-        Q = float(self.q_edit.text())
-        self.parent.log_info(f'Q={Q}')
-        self.parent.on_analyze_srs(fmin=fmin, fmax=fmax, Q=Q)
 
 
 class MainWindow(QMainWindow):
@@ -240,22 +139,27 @@ class MainWindow(QMainWindow):
         menu_bar = QMenuBar()
 
         recent_files = []
-
         menu_window = []
         if self.html_logging:
             #self.actions['log_dock_widget'] = self.log_dock_widget.toggleViewAction()
             #self.actions['log_dock_widget'].setStatusTip("Show/Hide application log")
             #menu_view += ['', 'show_info', 'show_debug', 'show_command', 'show_warning', 'show_error']
-            menu_window += ['res_dock', 'log_dock', '-', 'show_debug', 'show_info', 'show_warning', 'show_error', 'show_command', ]
+            menu_window += [
+                'res_dock', 'log_dock', 'analyze_dock', '',
+                'show_debug', 'show_info', 'show_warning', 'show_error', 'show_command', ]
         # ---------------------------------------------------------------------------------
         analyze = [
-            'trim', 'psd', 'vrs', 'srs', 'pseudo-velocity',
+            'trim', '',
+            'psd', 'set_psd_limits', '',
+            'vrs', '',
+            'srs','set_srs_limits', '',
+            'pseudo-velocity',
         ]
         menu_bar_dict = {
             '&File': ['open', 'save', 'save_as', '',
                       'load_time_csv',
                       ('&Recent Files', recent_files),
-                      ('&Base', ['a',  'b', 'c']),
+                      #('&Base', ['a',  'b', 'c']),
                       'exit'],
             '&Analyze': analyze,
         }
@@ -273,9 +177,10 @@ class MainWindow(QMainWindow):
             #'save_as': ('Save As...', 'Ctrl+S', 'saves the thingy', None, no_check),
             'exit': ('Exit...', '', 'Ctrl+Q', 'exits the thingy', None, no_check),
 
-            'about'        : ('About...',     '', '', 'about the program', None, no_check),
+            'about'        : ('About...',     '', '', 'about the program', self.on_about, no_check),
             'log_dock'     : ('Log Dock',     '', '', 'Show/Hide log_dock', None, checked),
             'res_dock'     : ('Results Dock', '', '', 'Show/Hide results dock', None, checked),
+            'analyze_dock' : ('Analyze Dock', '', '', 'Show/Hide analyze dock', None, checked),
 
             'show_info'   : ('Show INFO',    'show_info.png',    '', 'Show "INFO" messages', self.on_show_info, checked),
             'show_debug'  : ('Show DEBUG',   'show_debug.png',   '', 'Show "DEBUG" messages', self.on_show_debug, checked),
@@ -319,7 +224,7 @@ class MainWindow(QMainWindow):
             self.psd_data[iresponse] = res
         set_tab(self.tab_psd)
 
-        self.on_plot_freq(self.psd_data)
+        self.on_plot_psd(self.psd_data)
         self.log_command(f'self.on_analyze_psd(window={window!r}, window_size_sec={window_size_sec}, overlap={overlap})')
 
     def on_analyze_vrs(self, Q: float):
@@ -369,15 +274,6 @@ class MainWindow(QMainWindow):
             else:
                 widget.hide()
 
-    #def on_sidebar_trim(self):
-        #self._show_sidebar('trim')
-    #def on_sidebar_psd(self):
-        #self._show_sidebar('psd')
-    #def on_sidebar_vrs(self):
-        #self._show_sidebar('vrs')
-    #def on_sidebar_srs(self):
-        #self._show_sidebar('srs')
-
     #------------------------------------------------------------------------
     # plotting
     def on_trim_data(self, trims: list[tuple[float, float]]):
@@ -419,7 +315,7 @@ class MainWindow(QMainWindow):
         self.log_command(f'self.on_trim_data({trims})')
         self.trims = trims
 
-    def on_plot_freq(self, psd_data: dict[int, PowerSpectralDensity]):
+    def on_plot_psd(self, psd_data: dict[int, PowerSpectralDensity]):
         # self.trims
         ax = self._psd_ax
         xlim = ax.get_xlim()
@@ -430,7 +326,7 @@ class MainWindow(QMainWindow):
         colors = self.colors
         iresponse = 0
         for key, psd_series in self.psd_data.items():
-            color = colors[iresponse]
+            #color = colors[iresponse]
             psd_series.plot(ax=ax)
             #ax.plot(x, y, linestyle='-', color='grey')
             #for (mini, maxi) in trims:
@@ -441,9 +337,9 @@ class MainWindow(QMainWindow):
 
         fig = ax.get_figure()
         fig.canvas.draw()
-        if self.is_psd:
-            ax.set_xlim(xlim)
-            ax.set_ylim(ylim)
+        #if self.is_psd:
+            #ax.set_xlim(xlim)
+            #ax.set_ylim(ylim)
         self.is_psd = True
         #self.trims = trims
         return
@@ -456,10 +352,10 @@ class MainWindow(QMainWindow):
         ax.clear()
 
         #ncurves = len(self.xy_data)
-        colors = self.colors
+        #colors = self.colors
         iresponse = 0
         for key, srs_series in self.srs_data.items():
-            color = colors[iresponse]
+            #color = colors[iresponse]
             srs_series.plot_srs_accel(ax=ax)
             #ax.plot(x, y, linestyle='-', color='grey')
             #for (mini, maxi) in trims:
@@ -470,9 +366,9 @@ class MainWindow(QMainWindow):
 
         fig = ax.get_figure()
         fig.canvas.draw()
-        if self.is_srs:
-            ax.set_xlim(xlim)
-            ax.set_ylim(ylim)
+        #if self.is_srs:
+            #ax.set_xlim(xlim)
+            #ax.set_ylim(ylim)
         self.is_srs = True
         #self.trims = trims
         return
@@ -661,6 +557,17 @@ class MainWindow(QMainWindow):
             msg = 'msg is None; must be a string'
             return self.log.simple_msg(msg, 'GUI ERROR')
         return self.log.simple_msg(msg, 'GUI WARNING')
+
+    #------------------------------------
+    #minor windows
+    def on_about(self) -> None:
+        data = {'font_size': 8,}
+        win = AboutWindow(data, win_parent=self, show_tol=True)
+        win.show()
+    def open_website(self) -> None:
+        pass
+    def _check_for_latest_version(self) -> None:
+        pass
 
 def set_tab(tab: QWidget) -> None:
     tab.setEnabled(True)
