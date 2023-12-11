@@ -284,3 +284,31 @@ def plotting(PSA: np.ndarray,
         plt.show()
 
     return fig
+
+# https://www.vibrationdata.com/software.htm
+# https://community.sw.siemens.com/s/article/dynamic-stiffness-compliance-mobility-and-more
+# https://www.vibrationdata.com/tutorials_alt/frf.pdf
+def compliance(force, displacement):
+    """1/k at low end; 1/(omega^2*m) at high end"""
+    return displacement / force
+def dynamic_stiffness(force, displacement):
+    """inverse of compliance terms"""
+    return force / displacement
+
+def mobility(force, velocity):
+    """omega/k at low end; 1/(omega*m) at high end"""
+    return velocity / force
+def mechanical_impedance(force, velocity):
+    return force / velocity
+
+def accelerance(force, acceleration):
+    """omega^2/k at low end; 1/m at high end"""
+    return acceleration / force
+def dynamic_mass(force, acceleration):
+    """inverse of accelerance terms"""
+    return force / acceleration
+
+inertance = accelerance
+apparent_mass = dynamic_mass
+receptance = compliance
+admittance = compliance

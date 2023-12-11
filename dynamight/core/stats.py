@@ -12,6 +12,68 @@ def half_power_bandwidth(fmid: float,
 #def stats():
     #return kurtosis, skew, crest_factor, skewness, rms, mini, maxi
 
+
+def signal_stats(a, b, num):
+    """
+    Parameters
+    ----------
+    a : float array
+        time column
+    b : float array
+        amplitude column
+    num : int
+        number of coordinates
+
+    Returns
+    -------
+    sample_rate : flot
+        sample rate
+    dt : float
+        time step
+    mean : float
+        average
+    std : float
+        standard deviation
+    rms : float
+        root mean square
+    skewness : float
+    kurtosis : float
+        peakedness
+    duration : float
+
+    https://www.vibrationdata.com/Python.htm
+    https://www.vibrationdata.com/python/tompy.py
+    """
+    bmax = max(b)
+    bmin = min(b)
+
+    ave = np.mean(b)
+
+    duration = a[num-1] - a[0];
+
+    dt = duration / float(num-1)
+    sample_rate = 1/dt
+
+
+    rms = np.sqrt(np.var(b))
+    std = np.std(b)
+
+    skewness = stats.skew(b)
+    kurtosis = stats.kurtosis(b, fisher=False)
+
+    print ("\n max = %8.4g  min=%8.4g \n" % (bmax,bmin))
+
+    print ("     mean = %8.4g " % ave)
+    print ("  std dev = %8.4g " % sd)
+    print ("      rms = %8.4g " % rms)
+    print (" skewness = %8.4g " % skewness)
+    print (" kurtosis = %8.4g " % kurtosis)
+
+    print ("\n  start = %8.4g sec  end = %8.4g sec" % (a[0],a[num-1]))
+    print ("    dur = %8.4g sec \n" % dur)
+    return sr, dt, ave, sd, rms, skewness, kurtosis, dur
+
+
 def psd_db_scale(response: np.ndarray,
                  dB: float) -> np.ndarray:
     """6 dB = 4x"""
@@ -20,7 +82,10 @@ def psd_db_scale(response: np.ndarray,
 
 def grms_srs_db_scale(response: np.ndarray,
                  dB: float) -> np.ndarray:
-    """3 dB = 2x"""
+    """
+    3 dB = 2x
+    Used for gRMS and Shock
+    """
     scale = 20 ** (dB / 10)
     return response * scale
 

@@ -1,8 +1,11 @@
+import os
 import sys
-from typing import Callable
+from functools import partial
+from typing import Callable, Optional
 
 import numpy as np
 
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.backends.backend_qtagg import \
     NavigationToolbar2QT as NavigationToolbar
@@ -10,152 +13,136 @@ from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.figure import Figure
 
 from qtpy.QtWidgets import (
-    QApplication, QLabel, QTextEdit, QRadioButton, QComboBox, QTabBar, QMainWindow,
+    QApplication, QMainWindow,
+    QLabel, QTextEdit, QRadioButton, QComboBox, QTabBar,
     QWidget, QVBoxLayout, QGridLayout, QHBoxLayout, QTabWidget, QAction, QMenuBar,
-    QStatusBar, QMenu, QTreeView, QPushButton, QDockWidget,
+    QStatusBar, QMenu, QTreeView, QPushButton, QDockWidget, QLineEdit, QDoubleSpinBox
 )
 from qtpy import QtGui
 import qtpy.QtCore as QtCore
 from cpylog import SimpleLogger
 from cpylog.html_utils import str_to_html
 from pyNastran.gui.menus.menus import (
-    Sidebar,
     ApplicationLogWidget,
     #PythonConsoleWidget,
 )
+from pyNastran.gui.utils.qt.pydialog import PyDialog, QFloatEdit, set_combo_box_text
+from dynamight.gui.qactions import build_actions_dict, build_menu_bar
+from dynamight.gui.sidebar import Sidebar2
+from dynamight.gui.trim_widget import TrimWidget
+from dynamight.core.time import TimeSeries
+from dynamight.core.psd import PowerSpectralDensity
+from dynamight.core.srs import ShockResponseSpectra
 
-class ResultsWindow(QWidget):
-    def __init__(self, parent, name: str, data: list, *args, **kwargs):
+class PsdWidget(QWidget):
+    def __init__(self, parent):
         super().__init__()
-        assert isinstance(name, str), name
-        assert isinstance(data, list), data
+
         self.parent = parent
 
-        self.model = QtGui.QStandardItemModel()
-        self.model.setHorizontalHeaderLabels([self.tr(name)])
-        is_single = self.addItems(self.model, data)
+        grid = QGridLayout(parent)
+        window_size_label = QLabel('window_size (sec)')
 
-        self.treeView = QTreeView(self)
-        self.treeView.setModel(self.model)
-        #self.treeView.set_single(is_single)
+        #self.text_edit = QLineEdit('-0.1 0.5; 4. 5.;')
+        self.window_size_edit = QFloatEdit('1.0')
 
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.treeView)
-        self.setLayout(vbox)
+        window_label = QLabel('Window:')
+        self.window_pulldown = QComboBox(parent)
+        self.window_pulldown.addItems(['hann', 'Hamming', 'Boxcar'])
 
-    def addItems(self, parent, elements, level=0, count_check=False):
-        nelements = len(elements)
-        redo = False
-        #print(elements[0])
-        try:
-            #if len(elements):
-                #assert len(elements[0]) == 3, 'len=%s elements[0]=%s\nelements=\n%s\n' % (
-                    #len(elements[0]), elements[0], elements)
-            for element in elements:
-                #if isinstance(element, str):
-                    #print('elements = %r' % str(elements))
+        overlap_label = QLabel('Overlap:')
+        self.overlap_spinner = QDoubleSpinBox(parent)
+        self.overlap_spinner.setValue(0.5)
+        self.overlap_spinner.setDecimals(3)
+        self.overlap_spinner.setMinimum(0.0)
+        self.overlap_spinner.setMaximum(1.0)
 
-                #print('element = %r' % str(element))
-                if not len(element) == 3:
-                    print('element = %r' % str(element))
-                try:
-                    text, i, children = element
-                except ValueError:
-                    #  [
-                    #     ('Point Data', None, [
-                    #         ('NodeID', 0, []),
-                    #         ('Displacement T_XYZ_subcase=1', 1, []),
-                    #         ('Displacement R_XYZ_subcase=1', 2, []),
-                    #     ])
-                    #  ]
-                    #
-                    # should be:
-                    #   ('Point Data', None, [
-                    #       ('NodeID', 0, []),
-                    #       ('Displacement T_XYZ_subcase=1', 1, []),
-                    #       ('Displacement R_XYZ_subcase=1', 2, []),
-                    #   ])
-                    print('failed element = ', element)
-                    raise
-                nchildren = len(children)
-                #print('text=%r' % text)
-                item = QtGui.QStandardItem(text)
-                parent.appendRow(item)
+        irow = 0
+        grid.addWidget(window_size_label, irow, 0)
+        grid.addWidget(self.window_size_edit, irow, 1)
+        irow += 1
 
-                # TODO: count_check and ???
-                if nelements == 1 and nchildren == 0 and level == 0:
-                    #self.result_data_window.setEnabled(False)
-                    item.setEnabled(False)
-                    #print(dir(self.treeView))
-                    #self.treeView.setCurrentItem(self, 0)
-                    #item.mousePressEvent(None)
-                    redo = True
-                #else:
-                    #pass
-                    #print('item=%s count_check=%s nelements=%s nchildren=%s' % (
-                        #text, count_check, nelements, nchildren))
-                if children:
-                    assert isinstance(children, list), children
-                    self.addItems(item, children, level + 1, count_check=count_check)
-                    #print('*children = %s' % children)
-            is_single = redo
-            return is_single
-        except ValueError:
-            print()
-            print(f'elements = {elements}')
-            print(f'element = {element}')
-            print(f'len(element) = {len(element)}')
-            print(f'len(elements)={len(elements)}')
-            for elem in elements:
-                print('  e = %s' % str(elem))
-            raise
-        #if redo:
-        #    data = [
-        #        ('A', []),
-        #        ('B', []),
-        #    ]
-        #    self.update_data(data)
+        grid.addWidget(window_label, irow, 0)
+        grid.addWidget(self.window_pulldown, irow, 1)
+        irow += 1
 
-class Sidebar2(QWidget):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        data = [
-            [u'Geometry', None, [
-                (u'NodeID', 0, []),
-                (u'ElementID', 1, []),
-                (u'PropertyID', 2, []),
-                (u'MaterialID', 3, []),
-                (u'E', 4, []),
-                (u'Element Checks', None, [
-                    (u'ElementDim', 5, []),
-                    (u'Min Edge Length', 6, []),
-                    (u'Min Interior Angle', 7, []),
-                    (u'Max Interior Angle', 8, [])],
-                ),],
-            ],
-        ]
+        grid.addWidget(overlap_label, irow, 0)
+        grid.addWidget(self.overlap_spinner, irow, 1)
+        irow += 1
 
 
-        self.result_method_window = ResultsWindow(self, 'Files', data)
-        #self.result_method_window.setVisible(False)
-        #else:
-            #self.result_method_window = None
+        self.apply_button = QPushButton('Apply')
 
-        #self.show_pulldown = False
-        #if self.show_pulldown:
-            ##combo_options = ['a1', 'a2', 'a3']
-            #self.pulldown = QComboBox()
-            #self.pulldown.addItems(choices)
-            #self.pulldown.activated[str].connect(self.on_pulldown)
-
-        self.apply_button = QPushButton('Apply', self)
-
-        vbox = QVBoxLayout(self)
-        vbox.addWidget(self.result_method_window)
+        vbox = QVBoxLayout(parent)
+        vbox.addLayout(grid)
         vbox.addWidget(self.apply_button)
-
         self.setLayout(vbox)
+        self.apply_button.clicked.connect(self.on_apply)
+
+    def on_apply(self):
+        window_size = float(self.window_size_edit.text())
+        window = self.window_pulldown.currentText()
+        overlap = self.overlap_spinner.value()
+        #sline = text.split(';')
+        #trims = []  # inclusive
+        #for slinei in sline:
+            #slinei = slinei.strip()
+            #if len(slinei) == 0:
+                #continue
+            #mini, maxi = slinei.split(' ')
+            #min_float = float(mini)
+            #max_float = float(maxi)
+            #trim = [min_float, max_float]
+            #trims.append(trim)
+        self.parent.log_info(f'window_size={window_size}; window={window!r}')
+        self.parent.on_analyze_psd(window, window_size, overlap)
+
+
+class SrsWidget(QWidget):
+    def __init__(self, parent):
+        super().__init__()
+
+        self.parent = parent
+
+        grid = QGridLayout(parent)
+
+        fmin_label = QLabel('Freq Min (Hz):')
+        self.fmin_edit = QFloatEdit('10.0')
+
+        fmax_label = QLabel('Freq Max (Hz):')
+        self.fmax_edit = QFloatEdit('2000.')
+
+        q_label = QLabel('Q')
+        self.q_edit = QFloatEdit('10.0')
+
+        irow = 0
+        grid.addWidget(fmin_label, irow, 0)
+        grid.addWidget(self.fmin_edit, irow, 1)
+        irow += 1
+
+        grid.addWidget(fmax_label, irow, 0)
+        grid.addWidget(self.fmax_edit, irow, 1)
+        irow += 1
+
+        grid.addWidget(q_label, irow, 0)
+        grid.addWidget(self.q_edit, irow, 1)
+        irow += 1
+
+        self.apply_button = QPushButton('Apply')
+
+        vbox = QVBoxLayout(parent)
+        vbox.addLayout(grid)
+        vbox.addWidget(self.apply_button)
+        self.setLayout(vbox)
+        self.apply_button.clicked.connect(self.on_apply)
+
+    def on_apply(self):
+        fmin = float(self.fmin_edit.text())
+        fmax = float(self.fmax_edit.text())
+        Q = float(self.q_edit.text())
+        self.parent.log_info(f'Q={Q}')
+        self.parent.on_analyze_srs(fmin=fmin, fmax=fmax, Q=Q)
+
 
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -177,27 +164,53 @@ class MainWindow(QMainWindow):
         self.performance_mode = False
 
         # ----------------------------------------------------------------------------------
+        time = np.linspace(0, 10, 501)
+        response = np.tan(time)
+        self.xy_data: dict[int, tuple[np.ndarray, np.ndarray]] = {
+            1: (time, response),
+        }
+        self.trims: list[tuple[float, float]] = []
+        self.psd_data: dict[int, PowerSpectralDensity] = {}
+        self.srs_data: dict[int, ShockResponseSpectra] = {}
+
         tabs = QTabWidget(self)
-        self.tab1 = QWidget(self)
-        self.tab2 = QWidget(self)
-        self.tab3 = QWidget(self)
+        self.tab_time = QWidget(self)
+        self.tab_psd = QWidget(self)
+        #self.tab_vrs = QWidget(self)
+        self.tab_srs = QWidget(self)
 
-        tabs.addTab(self.tab1, 'Time Domain')
-        tabs.addTab(self.tab2, 'Freq Domain')
-        #tabs.addTab(self.tab3, 'Tab 3')
+        tabs.addTab(self.tab_time, 'Time Domain')
+        tabs.addTab(self.tab_psd, 'PSD-Freq Domain')
+        #tabs.addTab(self.tab_vrs, 'VRS-Freq Domain')
+        tabs.addTab(self.tab_srs, 'SRS-Freq Domain')
+        #self.tab_freq.setDisabled(True)
+        self.tab_psd.hide()
+        self.tab_srs.hide()
 
-        #window = QWidget()
-        self.setWindowTitle("PyQt App")
+        self.setWindowTitle('dynamight')
 
         status_bar = QStatusBar(self)
         self.setStatusBar(status_bar)
 
         self.res_widget = Sidebar2(self)
-
         self.res_dock_widget = QDockWidget('Results', self)
         self.res_dock_widget.setObjectName('results_obj')
         self.res_dock_widget.setWidget(self.res_widget)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.res_dock_widget)
+
+        self.is_psd = False
+        self.is_srs = False
+        self.analyze_widgets = {
+            'trim': TrimWidget(self),
+            'psd': PsdWidget(self),
+            'srs': SrsWidget(self),
+            #'vrs': VrsWidget(self),
+        }
+        self.analyze_dock_widget = QDockWidget('Analyze', self)
+        self.analyze_dock_widget.hide()
+        #self.analyze_dock_widget.setObjectName('results_obj')
+        #self.analyze_dock_widget.setWidget(self.menu_widget)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.analyze_dock_widget)
 
         self.create_log_python_docks()
         self.create_menu_actions()
@@ -207,14 +220,17 @@ class MainWindow(QMainWindow):
         height = 500
         self.setGeometry(x, y, width, height)
         #helloMsg = QLabel("<h1>Hello, World!</h1>", parent=window)
-        #window =
+
         #layout = QHBoxLayout(self)
         #layout.addWidget(tabs)
         #self.setLayout(layout)
         #self.setFixedSize(tabs.sizeHint())
 
         #helloMsg.move(60, 15)
-        self.create_static_canvas(self.tab1)
+        self._time_ax = self.create_static_canvas(self.tab_time, domain='time')
+        self._psd_ax = self.create_static_canvas(self.tab_psd, domain='freq')
+        self._srs_ax = self.create_static_canvas(self.tab_srs, domain='freq')
+        self._srs_ax.set_ylabel('SRS Acceleration (g); Q=10')
         self.setCentralWidget(tabs)
 
         self.log_info('cats')
@@ -230,41 +246,56 @@ class MainWindow(QMainWindow):
             #self.actions['log_dock_widget'] = self.log_dock_widget.toggleViewAction()
             #self.actions['log_dock_widget'].setStatusTip("Show/Hide application log")
             #menu_view += ['', 'show_info', 'show_debug', 'show_command', 'show_warning', 'show_error']
-            menu_window += ['res_dock', 'log_dock']
-
-        #self.actions['toolbar'] = self.toolbar.toggleViewAction()
-        #self.actions['reswidget'] = self.res_dock.toggleViewAction()
-        #self.actions['log_dock'] = self.res_dock.toggleViewAction()
-
-        #self.actions['toolbar'].setStatusTip('Show/Hide application toolbar')
-        #self.actions['reswidget'].setStatusTip('Show/Hide results selection')
-        #self.actions['log_dock'].setStatusTip('Show/Hide log_dock')
+            menu_window += ['res_dock', 'log_dock', '-', 'show_debug', 'show_info', 'show_warning', 'show_error', 'show_command', ]
         # ---------------------------------------------------------------------------------
+        analyze = [
+            'trim', 'psd', 'vrs', 'srs', 'pseudo-velocity',
+        ]
         menu_bar_dict = {
             '&File': ['open', 'save', 'save_as', '',
                       'load_time_csv',
                       ('&Recent Files', recent_files),
                       ('&Base', ['a',  'b', 'c']),
                       'exit'],
+            '&Analyze': analyze,
         }
         if len(menu_window):
             menu_bar_dict['&Window'] = menu_window
         menu_bar_dict['&Help'] = ['about']
 
+        checked = True
+        no_check = None
         actions_data_dict = {
-            # (name, txt, icon, shortcut, tip, func, checkable)
-            'load_time_csv': ('Load Time CSV', '', '', '', 'loads a time domain csv', self.on_load_time_csv, False),
-            'open': ('Open', '', '', 'Ctrl+O', 'opens the thingy', None, False),
-            'save': ('Save', '', '', 'Ctrl+S', 'saves the thingy', None, False),
-            #'save': ('Save', '', 'Ctrl+S', 'saves the thingy', None, False),
-            'exit': ('Exit', '', '', 'Ctrl+Q', 'exits the thingy', None, False),
+            # (name, icon, shortcut, tip, func, checkable)
+            'load_time_csv': ('Load Time CSV', '', '', 'loads a time domain csv', self.on_load_time_csv, no_check),
+            'open': ('Open...', '', 'Ctrl+O', 'opens the thingy', None, no_check),
+            'save': ('Save...', '', 'Ctrl+S', 'saves the thingy', None, no_check),
+            #'save_as': ('Save As...', 'Ctrl+S', 'saves the thingy', None, no_check),
+            'exit': ('Exit...', '', 'Ctrl+Q', 'exits the thingy', None, no_check),
 
-            'about': ('About', '', '', '', 'about the program', None, False),
-            'log_dock' : ('Lock Dock', '', '', '', 'Show/Hide log_dock', self.log_dock_widget.toggleViewAction, True),
-            'res_dock' : ('Results Dock', '', '', '', 'Show/Hide results dock', self.res_dock_widget.toggleViewAction, True),
+            'about'        : ('About...',     '', '', 'about the program', None, no_check),
+            'log_dock'     : ('Log Dock',     '', '', 'Show/Hide log_dock', None, checked),
+            'res_dock'     : ('Results Dock', '', '', 'Show/Hide results dock', None, checked),
+
+            'show_info'   : ('Show INFO',    'show_info.png',    '', 'Show "INFO" messages', self.on_show_info, checked),
+            'show_debug'  : ('Show DEBUG',   'show_debug.png',   '', 'Show "DEBUG" messages', self.on_show_debug, checked),
+            'show_command': ('Show COMMAND', 'show_command.png', '', 'Show "COMMAND" messages', self.on_show_command, checked),
+            'show_warning': ('Show WARNING', 'show_warning.png', '', 'Show "WARJNING" messages', self.on_show_warning, checked),
+            'show_error'  : ('Show ERROR',   'show_error.png',   '', 'Show "ERROR" messages', self.on_show_error, checked),
+
+            # analyze
+            'trim'  : ('Trim Time', '', '', 'Trim a time series',                                              partial(self._show_sidebar, 'trim'), no_check),
+            'psd'  : ('PSD',        '', '', 'Calculates a PSD (power spectral density) of the shown data',     partial(self._show_sidebar, 'psd'), no_check),
+            'vrs'  : ('VRS',        '', '', 'Calculates a VRS (vibration response spectra) of the shown data', partial(self._show_sidebar, 'vrs'), no_check),
+            'srs'  : ('SRS',        '', '', 'Calculates a SRS (shock response spectra) of the shown data',     partial(self._show_sidebar, 'srs'), no_check),
         }
         actions_dict = build_actions_dict(self, actions_data_dict)
 
+        #actions_dict['show_info'].setChecked(self.settings.show_info)
+        #actions_dict['show_debug'].setChecked(self.settings.show_debug)
+        #actions_dict['show_command'].setChecked(self.settings.show_command)
+        #actions_dict['show_warning'].setChecked(self.settings.show_warning)
+        #actions_dict['show_error'].setChecked(self.settings.show_error)
 
         build_menu_bar(self, menu_bar, menu_bar_dict, actions_dict)
         self.setMenuBar(menu_bar)
@@ -272,26 +303,238 @@ class MainWindow(QMainWindow):
     def on_load_time_csv(self):
         pass
 
+    @property
+    def colors(self):
+        ncurves = len(self.xy_data)
+        return [f'C{i}' for i in range(ncurves)]
+
+    def on_analyze_psd(self, window: str, window_size_sec: float, overlap: float):
+        #colors = self.colors
+        iresponse = 0
+        self.psd_data = {}
+        for key, (time, response) in self.xy_data.items():
+            label = str(key)
+            series = TimeSeries(time, response, label=label)
+            res = series.to_psd_welch(sided=1, window=window, window_size_sec=window_size_sec, overlap=overlap)
+            self.psd_data[iresponse] = res
+        set_tab(self.tab_psd)
+
+        self.on_plot_freq(self.psd_data)
+        self.log_command(f'self.on_analyze_psd(window={window!r}, window_size_sec={window_size_sec}, overlap={overlap})')
+
+    def on_analyze_vrs(self, Q: float):
+        pass
+
+    def on_analyze_srs(self,
+                       fmin: float=10.,
+                       fmax: float=2000.,
+                       Q: float=10.):
+        #colors = self.colors
+        iresponse = 0
+        self.psd_data = {}
+        for key, (time, response) in self.xy_data.items():
+            label = str(key)
+            series = TimeSeries(time, response, label=label)
+            srs = series.to_srs(fmin=fmin, fmax=fmax,
+                                Q=Q,
+                                #noctave: int=6,
+                                calc_accel_srs=True,
+                                calc_rel_disp_srs=False,
+                                )
+            self.srs_data[iresponse] = srs
+
+        self.on_plot_srs(self.srs_data)
+        set_tab(self.tab_srs)
+        self.log_command(f'self.on_analyze_srs(fmin={fmin}, fmax={fmax}, Q={Q})')
+
+    def on_analyze_waterfall_psd(self):
+        pass
+    def on_analyze_waterfall_vrs(self):
+        pass
+    def on_analyze_waterfall_srs(self):
+        pass
+    #------------------------------------------------------------------------
+    # analyze setup
+
+    def _show_sidebar(self, name: str) -> None:
+        keys = list(self.analyze_widgets.keys())
+        if name not in keys:
+            self.log_error(f'name={name!r} is not in {keys}')
+            return
+        for name_widget, widget in self.analyze_widgets.items():
+            if name == name_widget:
+                widget.show()
+                self.analyze_dock_widget.setWidget(widget)
+                self.analyze_dock_widget.show()
+            else:
+                widget.hide()
+
+    #def on_sidebar_trim(self):
+        #self._show_sidebar('trim')
+    #def on_sidebar_psd(self):
+        #self._show_sidebar('psd')
+    #def on_sidebar_vrs(self):
+        #self._show_sidebar('vrs')
+    #def on_sidebar_srs(self):
+        #self._show_sidebar('srs')
+
     #------------------------------------------------------------------------
     # plotting
-    def create_static_canvas(self, widget: QWidget) -> None:
+    def on_trim_data(self, trims: list[tuple[float, float]]):
+        if len(trims) == 0:
+            asdf
+        ax = self._time_ax
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        ax.clear()
+
+        ncurves = len(self.xy_data)
+        colors = self.colors
+        iresponse = 0
+        for key, (x, y) in self.xy_data.items():
+            color = colors[iresponse]
+            ax.plot(x, y, linestyle='-', color='grey')
+            for (mini, maxi) in trims:
+                bools = (mini < x) & (x < maxi)
+                i = np.where(bools)
+                ax.plot(x[i], y[i], color=color, linewidth=3)
+            iresponse += 1
+        ax.grid(True)
+
+        domain = 'time'
+        if domain == 'time':
+            xlabel = 'Time (sec)'
+            ylabel = 'Response (g)'
+        elif domain == 'freq':
+            xlabel = 'Frequency (Hz)'
+            ylabel = 'PSD ($g^2$/Hz)'
+        else:
+            raise RuntimeError(domain)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        fig = ax.get_figure()
+        fig.canvas.draw()
+        self.log_command(f'self.on_trim_data({trims})')
+        self.trims = trims
+
+    def on_plot_freq(self, psd_data: dict[int, PowerSpectralDensity]):
+        # self.trims
+        ax = self._psd_ax
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        ax.clear()
+
+        #ncurves = len(self.xy_data)
+        colors = self.colors
+        iresponse = 0
+        for key, psd_series in self.psd_data.items():
+            color = colors[iresponse]
+            psd_series.plot(ax=ax)
+            #ax.plot(x, y, linestyle='-', color='grey')
+            #for (mini, maxi) in trims:
+                #bools = (mini < x) & (x < maxi)
+                #i = np.where(bools)
+                #ax.plot(x[i], y[i], color=color, linewidth=3)
+            iresponse += 1
+
+        fig = ax.get_figure()
+        fig.canvas.draw()
+        if self.is_psd:
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+        self.is_psd = True
+        #self.trims = trims
+        return
+
+    def on_plot_srs(self, srs_data: dict[int, ShockResponseSpectra]):
+        # self.trims
+        ax = self._srs_ax
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        ax.clear()
+
+        #ncurves = len(self.xy_data)
+        colors = self.colors
+        iresponse = 0
+        for key, srs_series in self.srs_data.items():
+            color = colors[iresponse]
+            srs_series.plot_srs_accel(ax=ax)
+            #ax.plot(x, y, linestyle='-', color='grey')
+            #for (mini, maxi) in trims:
+                #bools = (mini < x) & (x < maxi)
+                #i = np.where(bools)
+                #ax.plot(x[i], y[i], color=color, linewidth=3)
+            iresponse += 1
+
+        fig = ax.get_figure()
+        fig.canvas.draw()
+        if self.is_srs:
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+        self.is_srs = True
+        #self.trims = trims
+        return
+
+    def create_static_canvas(self, widget: QWidget,
+                             domain: str='time') -> plt.Axes:
+        """
+        domains: time, psd
+        """
         layout = QVBoxLayout(self)
-        fig = Figure(figsize=(5, 3))
-        static_canvas = FigureCanvas(fig)
+        static_fig = Figure(figsize=(5, 3))
+        static_canvas = FigureCanvas(static_fig)
         # Ideally one would use self.addToolBar here, but it is slightly
         # incompatible between PyQt6 and other bindings, so we just add the
         # toolbar as a plain widget instead.
         layout.addWidget(NavigationToolbar(static_canvas, self))
         layout.addWidget(static_canvas)
 
-        self._static_ax = static_canvas.figure.subplots()
-        t = np.linspace(0, 10, 501)
-        self._static_ax.plot(t, np.tan(t), '.-')
-        self._static_ax.grid(True)
+        ax = static_canvas.figure.subplots()
 
+        if domain == 'time':
+            iresponse = 1
+            time, response = self.xy_data[iresponse]
+            ax.plot(time, response, marker='.', linestyle='-', linewidth=3)
+
+        ax.grid(True)
+        if domain == 'time':
+            xlabel = 'Time (sec)'
+            ylabel = 'Response (g)'
+        elif domain == 'freq':
+            xlabel = 'Frequency (Hz)'
+            ylabel = 'PSD ($g^2$/Hz)'
+        else:
+            raise RuntimeError(domain)
+
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
         widget.setLayout(layout)
+        return ax
     #------------------------------------------------------------------------
     # Logging
+    # basic interaction
+    def on_show_debug(self) -> None:
+        """sets a flag for showing/hiding DEBUG messages"""
+        self.settings.show_debug = not self.settings.show_debug
+
+    def on_show_info(self) -> None:
+        """sets a flag for showing/hiding INFO messages"""
+        self.settings.show_info = not self.settings.show_info
+
+    def on_show_command(self) -> None:
+        """sets a flag for showing/hiding COMMAND messages"""
+        self.settings.show_command = not self.settings.show_command
+
+    def on_show_warning(self) -> None:
+        """sets a flag for showing/hiding WARNING messages"""
+        self.settings.show_warning = not self.settings.show_warning
+
+    def on_show_error(self) -> None:
+        """sets a flag for showing/hiding ERROR messages"""
+        self.settings.show_error = not self.settings.show_error
+
     def create_log_python_docks(self):
         """
         Creates the
@@ -343,6 +586,7 @@ class MainWindow(QMainWindow):
             line number
         msg : str
             message to be displayed
+
         """
         if not self.html_logging:
             # standard logger
@@ -418,71 +662,11 @@ class MainWindow(QMainWindow):
             return self.log.simple_msg(msg, 'GUI ERROR')
         return self.log.simple_msg(msg, 'GUI WARNING')
 
+def set_tab(tab: QWidget) -> None:
+    tab.setEnabled(True)
+    tab.activateWindow()
+    tab.setFocus()
 
-def build_actions_dict(parent,
-                       actions_data_dict: dict[str, tuple[str, str, str,
-                                                          str, str, Callable, bool]],
-                       ) -> dict[str, QAction]:
-    actions_dict = {}
-    for key, data in actions_data_dict.items():
-        (name, txt, icon, shortcut, tip, func, checkable) = data
-        #ico = None
-        txt = name
-        #action = QAction(ico, txt, parent, checkable=False)
-        action = QAction(txt, parent)
-        if icon:
-            new_icon = QIcon(':file-new.svg')
-            action.setIcon(new_icon)
-        if shortcut:
-            action.setShortcut(shortcut)
-        if tip:
-            action.setStatusTip(tip)
-        if func:
-            action.triggered.connect(func)
-        if checkable:
-            action.setCheckable(checkable)
-        actions_dict[key] = action
-    return actions_dict
-
-def build_menu_bar(parent,
-                   menu_bar: QMenuBar,
-                   menu_bar_dict: dict[str, list[str]],
-                   actions_dict: dict[str, QAction]) -> None:
-    """
-    menu_bar_dict = {
-        '&File': ['open', 'save', 'save_as', '',
-                  ('&Base', ['a',  'b', 'c']),
-                  'exit'],
-        '&Help': ['about'],
-    }
-    """
-    for menu_name, action_names in menu_bar_dict.items():
-        menu = menu_bar.addMenu(menu_name)
-        add_actions(parent, menu, action_names, actions_dict)
-
-def add_actions(parent,
-                menu: QMenu,
-                action_names,
-                actions_dict: dict[str, QAction]) -> None:
-    for action_name in action_names:
-        if action_name == '':
-            menu.addSeparator()
-            continue
-        if isinstance(action_name, str):
-            try:
-                action = actions_dict[action_name]
-            except KeyError:
-                action = QAction(action_name, parent)
-                action.setStatusTip('Not added to actions_dict')
-                action.setEnabled(False)
-            menu.addAction(action)
-        elif isinstance(action_name, tuple):
-            assert len(action_name) == 2, action_name
-            base, action_names2 = action_name
-            menu2 = menu.addMenu(base)
-            add_actions(parent, menu2, action_names2, actions_dict)
-        else:  # pragma: no cover
-            raise NotImplementedError(action_name)
 
 if __name__ == '__main__':
     # 2. Create an instance of QApplication

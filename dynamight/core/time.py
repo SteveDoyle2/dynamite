@@ -68,8 +68,17 @@ class TimeSeries:
 
     def to_psd_welch(self, sided: int=1, window: str='hann',
                      window_size_sec: float= 1.0,
-                     overlap_sec: float=0.5) -> dypsd.PowerSpectralDensity:
+                     overlap: float=0.5) -> dypsd.PowerSpectralDensity:
+        """
+        Parameters
+        ----------
+        overlap : float; default=0.5
+            percentage (0.0 to 1.0)
+
+        """
+        window = window.lower()
         assert sided in {1, 2}, sided
+        assert overlap >= 0.0 and overlap <= 1.0, overlap
         return_onesided = (sided == 1)
         #fsampling = 1 / self.dt
 
@@ -80,7 +89,7 @@ class TimeSeries:
         #frequency = np.arange(0, ntimes) * df
 
         window_size_int = int(fsampling * window_size_sec)
-        overlap_int = int(fsampling * overlap_sec)
+        overlap_int = int(fsampling * overlap)
 
         #nfft - for 0 padded signals
         #ntimes = len(self.time)

@@ -78,10 +78,28 @@ class PowerSpectralDensity:
         time_series = dytime.TimeSeries(time, ifft.real, self.label)
         return time_series
 
-    def to_miles_equation(self, Q: float) -> np.ndarray:
-        zeta = 1 / (2 * Q)
-        vrs = np.sqrt(np.pi/(4*zeta) * np.frequency)
-        return vrs
+    def to_miles_equation(self, Q: float=10., sigma: float=1.0) -> np.ndarray:
+        """
+        Creates an SDOF response to a constant PSD/ASD input
+
+        Parameters
+        ----------
+        Q : float; default=10.
+            amplification factor
+        sigma : float; default=1.0
+            number of standard deviations
+
+        Returns
+        -------
+        grms : (nfreq, nresponse) float array
+            the Grms response
+
+        https://femci.gsfc.nasa.gov/random/MilesEqn.html#:~:text=Miles'%20Equation%20calculates%20the%20square,with%20the%20GRMS%20value.&text=%2D%20Response%20Parameters%20%2D%20Miles'%20Equation,such%20as%20stress%20or%20displacement."""
+        #zeta = 1 / (2 * Q)
+        freq = self.frequency[:, np.newaxis]
+        grms = sigma * np.sqrt(np.pi * Q / 2 * freq * self.response)
+        #yrms = sigma * np.sqrt(Q / (np.pi**3 * 32 * freq**3) * self.response)
+        return grms
 
     def to_sdof_transmissibility(self, Q: float, fn: float):
         """https://www.dataphysics.com/blog/shock-analysis/understanding-shock-response-spectra/"""

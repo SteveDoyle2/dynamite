@@ -13,7 +13,7 @@ from dynamight.core.freq_utils import pseudo_response_spectra, plotting
 from dynamight.core.srs import octave_spacing, half_sine_pulse
 
 
-class TestCore(unittest.TestCase):
+class TestGrms(unittest.TestCase):
     def test_grms1(self):
         # FEMCI
         frequency = np.array([20., 30.])
@@ -81,6 +81,7 @@ class TestCore(unittest.TestCase):
 
         frequency = np.array([10., 200., 500., 2000.])
         psd_response = np.array([0.001, 0.08, 0.08, 0.02])
+
         psd_series = PowerSpectralDensity(
             frequency, psd_response,
             is_onesided_center=False,
@@ -89,6 +90,8 @@ class TestCore(unittest.TestCase):
         grms = psd_series.grms()
         assert np.allclose(grms, 9.27062562), grms  # 9.3
 
+
+class TestCore(unittest.TestCase):
     def test_time_response(self):
         time = np.linspace(0., 1., num=101)
         time_response = 2 * np.sin(time)
