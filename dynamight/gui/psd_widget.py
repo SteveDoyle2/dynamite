@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from qtpy.QtWidgets import (
     QLabel, QComboBox,
     #QTextEdit, QRadioButton,
@@ -12,10 +15,14 @@ from qtpy.QtWidgets import (
 from pyNastran.gui.utils.qt.pydialog import QFloatEdit# , PyDialog, set_combo_box_text
 from dynamight.core.time import TimeSeries
 from dynamight.core.psd import PowerSpectralDensity
+if TYPE_CHECKING:
+    from dynamight.gui.gui import MainWindow
 
+#PSD_WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'chebwin', 'cosine', 'dpss', 'exponential', 'flattop', 'gaussian', 'general_cosine', 'general_gaussian', 'general_hamming', 'hamming', 'hann', 'kaiser', 'kaiser_bessel_derived', 'lanczos', 'nuttall', 'parzen', 'taylor', 'triang', 'tukey',]
+PSD_WINDOWS = ['hann', 'hamming', 'boxcar', 'bartlett', 'blackman', 'cosine', 'flattop', 'kaiser',]
 
 class PsdWidget(QWidget):
-    def __init__(self, parent):
+    def __init__(self, parent: MainWindow):
         super().__init__()
 
         self.parent = parent
@@ -28,7 +35,7 @@ class PsdWidget(QWidget):
 
         window_label = QLabel('Window:')
         self.window_pulldown = QComboBox(parent)
-        self.window_pulldown.addItems(['hann', 'Hamming', 'Boxcar'])
+        self.window_pulldown.addItems(PSD_WINDOWS)
 
         overlap_label = QLabel('Overlap:')
         self.overlap_spinner = QDoubleSpinBox(parent)

@@ -1,13 +1,18 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from qtpy.QtWidgets import (
     QLabel, QWidget, QVBoxLayout, QGridLayout, # QHBoxLayout,
     QPushButton, QLineEdit,
 )
 #from qtpy import QtGui
 #import qtpy.QtCore as QtCore
+if TYPE_CHECKING:
+    from dynamight.gui.gui import MainWindow
 
 
 class TrimWidget(QWidget):
-    def __init__(self, parent):
+    def __init__(self, parent: MainWindow):
         super().__init__()
 
         self.parent = parent

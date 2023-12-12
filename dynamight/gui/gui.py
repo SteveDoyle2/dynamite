@@ -1,3 +1,6 @@
+"""
+https://vibrationdata.wordpress.com/2014/04/02/python-signal-analysis-package-gui/
+"""
 #import os
 import sys
 from functools import partial
@@ -33,6 +36,8 @@ from pyNastran.gui.menus.menus import (
 
 from dynamight.gui.about_window import AboutWindow
 from pyNastran.gui.utils.qt.pydialog import PyDialog, QFloatEdit, set_combo_box_text
+from pyNastran.gui.utils.qt.dialogs import open_file_dialog
+
 from dynamight.gui.qactions import build_actions_dict, build_menu_bar
 from dynamight.gui.sidebar import Sidebar2
 from dynamight.gui.trim_widget import TrimWidget
@@ -205,8 +210,31 @@ class MainWindow(QMainWindow):
         build_menu_bar(self, menu_bar, menu_bar_dict, actions_dict)
         self.setMenuBar(menu_bar)
 
+    def get_form(self) -> list:
+        i = 0
+        form = []
+        return i, form
+
+    def set_form(self, form: list) -> None:
+        self.res_widget.result_method_window.set_form(form)
+
     def on_load_time_csv(self):
-        pass
+        filetypes = 'Comma Separated Value (*.csv);;Space/Tab Separated Value (*.dat);;All files (*)'
+        """opens a file dialog"""
+        default_filename = ''
+        file_types = 'Delimited Text (*.txt; *.dat; *.csv)'
+        csv_filename, filt = open_file_dialog(self, 'Select a CSV File', default_filename, file_types)
+        time_series = TimeSeries.load_from_csv_filename(csv_filename)
+        i, form = self.get_form()
+
+        columns = []
+        for label in time_series.label:
+            columns.append((label, i, []))
+            i += 1
+
+        formi = (csv_filename, None, columns)
+        form.append(formi)
+        self.set_form(form)
 
     @property
     def colors(self):
@@ -278,13 +306,13 @@ class MainWindow(QMainWindow):
     # plotting
     def on_trim_data(self, trims: list[tuple[float, float]]):
         if len(trims) == 0:
-            asdf
+            return
         ax = self._time_ax
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         ax.clear()
 
-        ncurves = len(self.xy_data)
+        #ncurves = len(self.xy_data)
         colors = self.colors
         iresponse = 0
         for key, (x, y) in self.xy_data.items():

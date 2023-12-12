@@ -11,14 +11,55 @@ from qtpy.QtWidgets import (
 )
 from qtpy import QtGui
 #import qtpy.QtCore as QtCore
-from pyNastran.gui.menus.menus import (
-    Sidebar,
+#from pyNastran.gui.menus.menus import (
+    #Sidebar,
     #ApplicationLogWidget,
     #PythonConsoleWidget,
-)
+#)
+
+class Sidebar2(QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        data = [
+            #[u'Geometry', None, [
+                #(u'NodeID', 0, []),
+                #(u'ElementID', 1, []),
+                #(u'PropertyID', 2, []),
+                #(u'MaterialID', 3, []),
+                #(u'E', 4, []),
+                #(u'Element Checks', None, [
+                    #(u'ElementDim', 5, []),
+                    #(u'Min Edge Length', 6, []),
+                    #(u'Min Interior Angle', 7, []),
+                    #(u'Max Interior Angle', 8, [])],
+                #),],
+            #],
+        ]
+
+
+        self.result_method_window = ResultsWindow(self, 'Files', data)
+        #self.result_method_window.setVisible(False)
+        #else:
+            #self.result_method_window = None
+
+        #self.show_pulldown = False
+        #if self.show_pulldown:
+            ##combo_options = ['a1', 'a2', 'a3']
+            #self.pulldown = QComboBox()
+            #self.pulldown.addItems(choices)
+            #self.pulldown.activated[str].connect(self.on_pulldown)
+
+        self.apply_button = QPushButton('Apply', self)
+
+        vbox = QVBoxLayout(self)
+        vbox.addWidget(self.result_method_window)
+        vbox.addWidget(self.apply_button)
+
+        self.setLayout(vbox)
 
 class ResultsWindow(QWidget):
-    def __init__(self, parent, name: str, data: list, *args, **kwargs):
+    def __init__(self, parent: Sidebar2, name: str, data: list, *args, **kwargs):
         super().__init__()
         assert isinstance(name, str), name
         assert isinstance(data, list), data
@@ -38,7 +79,12 @@ class ResultsWindow(QWidget):
         vbox.addWidget(self.tree_view)
         self.setLayout(vbox)
 
-    def addItems(self, parent, elements, level=0, count_check=False):
+    def set_form(self, form: list):
+        self.tree_view.clearSelection()
+        self.addItems(self.model, form, level=0, count_check=False)
+        self.tree_view.expandAll()
+
+    def addItems(self, model, elements, level=0, count_check=False):
         nelements = len(elements)
         redo = False
         #print(elements[0])
@@ -75,7 +121,7 @@ class ResultsWindow(QWidget):
                 nchildren = len(children)
                 #print('text=%r' % text)
                 item = QtGui.QStandardItem(text)
-                parent.appendRow(item)
+                model.appendRow(item)
 
                 # TODO: count_check and ???
                 if nelements == 1 and nchildren == 0 and level == 0:
@@ -111,43 +157,3 @@ class ResultsWindow(QWidget):
         #    ]
         #    self.update_data(data)
 
-class Sidebar2(QWidget):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        data = [
-            [u'Geometry', None, [
-                (u'NodeID', 0, []),
-                (u'ElementID', 1, []),
-                (u'PropertyID', 2, []),
-                (u'MaterialID', 3, []),
-                (u'E', 4, []),
-                (u'Element Checks', None, [
-                    (u'ElementDim', 5, []),
-                    (u'Min Edge Length', 6, []),
-                    (u'Min Interior Angle', 7, []),
-                    (u'Max Interior Angle', 8, [])],
-                ),],
-            ],
-        ]
-
-
-        self.result_method_window = ResultsWindow(self, 'Files', data)
-        #self.result_method_window.setVisible(False)
-        #else:
-            #self.result_method_window = None
-
-        #self.show_pulldown = False
-        #if self.show_pulldown:
-            ##combo_options = ['a1', 'a2', 'a3']
-            #self.pulldown = QComboBox()
-            #self.pulldown.addItems(choices)
-            #self.pulldown.activated[str].connect(self.on_pulldown)
-
-        self.apply_button = QPushButton('Apply', self)
-
-        vbox = QVBoxLayout(self)
-        vbox.addWidget(self.result_method_window)
-        vbox.addWidget(self.apply_button)
-
-        self.setLayout(vbox)

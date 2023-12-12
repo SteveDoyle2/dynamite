@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from qtpy.QtWidgets import (
     QLabel, # QTextEdit, QRadioButton, QComboBox, QTabBar,
     QWidget, QVBoxLayout, QGridLayout, # QHBoxLayout, QTabWidget, QAction, QMenuBar,
@@ -7,10 +10,11 @@ from qtpy.QtWidgets import (
 from qtpy import QtGui
 import qtpy.QtCore as QtCore
 from pyNastran.gui.utils.qt.pydialog import QFloatEdit
-
+if TYPE_CHECKING:
+    from dynamight.gui.gui import MainWindow
 
 class SrsWidget(QWidget):
-    def __init__(self, parent):
+    def __init__(self, parent: MainWindow):
         super().__init__()
 
         self.parent = parent
@@ -57,5 +61,7 @@ class SrsWidget(QWidget):
         fmin = float(self.fmin_edit.text())
         fmax = float(self.fmax_edit.text())
         Q = float(self.q_edit.text())
+        calculate_log_mean = self.calculate_log_mean.isChecked()
         self.parent.log_info(f'Q={Q}')
-        self.parent.on_analyze_srs(fmin=fmin, fmax=fmax, Q=Q)
+        self.parent.on_analyze_srs(fmin=fmin, fmax=fmax, Q=Q,
+                                   calculate_log_mean=calculate_log_mean)
