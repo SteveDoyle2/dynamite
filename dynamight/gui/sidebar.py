@@ -18,8 +18,9 @@ from qtpy import QtGui
 #)
 
 class Sidebar2(QWidget):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, parent, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.parent = parent
 
         data = [
             #[u'Geometry', None, [
@@ -56,7 +57,38 @@ class Sidebar2(QWidget):
         vbox.addWidget(self.result_method_window)
         vbox.addWidget(self.apply_button)
 
+        self.setup_connections()
         self.setLayout(vbox)
+
+    def setup_connections(self) -> None:
+        self.apply_button.clicked.connect(self.on_apply)
+
+    def on_apply(self) -> None:
+        window = self.result_method_window
+        tree_view = window.tree_view
+        #model = window.model
+        indexs = tree_view.selectedIndexes()
+
+        index_to_map_dict = {}
+        for i, index0 in enumerate(indexs):
+            data = index0.data()
+            datas = [data]
+            rows = [index0.row()]
+
+            index = index0.parent()
+            while 1:
+                data = index.data()
+                if data is None:
+                    break
+                row = index.row()
+                datas.append(data)
+                rows.append(row)
+                index = index.parent()
+
+            datas2 = list(reversed(datas))
+            rows2 = list(reversed(rows))
+            index_to_map_dict[i] = (datas2, rows2)
+        asdf
 
 class ResultsWindow(QWidget):
     def __init__(self, parent: Sidebar2, name: str, data: list, *args, **kwargs):
