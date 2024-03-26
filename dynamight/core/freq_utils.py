@@ -1,5 +1,6 @@
 import os
 from itertools import count
+from typing import Optional
 
 from numpy.linalg import pinv
 import numpy as np
@@ -285,12 +286,66 @@ def plotting(PSA: np.ndarray,
 
     return fig
 
+def Qdamping_to_Qdamping(Q: Optional[float],
+                         damping: Optional[float]) -> tuple[float, float]:
+    if Q is None:
+        assert damping is not None, (damping, Q)
+        Q = 1 / (2 * damping)
+    else:
+        assert Q is not None, (damping, Q)
+        damping= 1 / (2 * Q)
+    return Q, damping
+
+def mck_to_omega_damping(m: float, c: float, k: float) -> tuple[float, float]:
+    """
+    m*xdd + c*xd + k*x   = F*sin(oemga*t)
+    xdd + c/m*xd + k/m*x = F/m...
+    (s^2 + c/m*s + k/m)*X = F/m...
+    (s^2 + (2*zeta*omegan)*s + omegan^2)*X = F/m...
+
+    c/m = 2*zeta*omegan
+    omegan^2 = k/m
+
+    omegan = sqrt(k/m)
+    c/m = 2 * zeta * sqrt(k/m)
+    zeta = c / (2 * sqrt(k*m))
+    """
+    omegan = np.sqrt(k / m)
+    c_crit = 2 * m * omegan
+    damping = c / c_crit  #  c/(2*sqrt(m*k))
+    return omegan, damping
+
+def equivalent_spring_dampers_in_parallel(ks: list[float]=None,
+                                          cs: list[float]=None) -> tuple[float, float]:
+    """a square plate mounted on isolators with a spring/damper at each corner"""
+    assert ks is not None or cs is not None, (ks, cs)
+    keq = 0.0
+    ceq = 0.0
+    if ks:
+        keq = sum(ks)
+    if cs:
+        ceq = sum(cs)
+    return keq, ceq
+
+def equivalent_spring_dampers_in_series(ks: list[float]=None,
+                                        cs: list[float]=None) -> tuple[float, float]:
+    """a long bar with multiple materials"""
+    assert ks is not None or cs is not None, (ks, cs)
+    keq = 0.0
+    ceq = 0.0
+    if ks:
+        keq = 1 / sum([1 / k for k in ks])
+    if cs:
+        ceq = 1 / sum([1 / c for c in cs])
+    return keq, ceq
+
 # https://www.vibrationdata.com/software.htm
 # https://community.sw.siemens.com/s/article/dynamic-stiffness-compliance-mobility-and-more
 # https://www.vibrationdata.com/tutorials_alt/frf.pdf
 def compliance(force, displacement):
     """1/k at low end; 1/(omega^2*m) at high end"""
     return displacement / force
+
 def dynamic_stiffness(force, displacement):
     """inverse of compliance terms"""
     return force / displacement
@@ -298,12 +353,14 @@ def dynamic_stiffness(force, displacement):
 def mobility(force, velocity):
     """omega/k at low end; 1/(omega*m) at high end"""
     return velocity / force
+
 def mechanical_impedance(force, velocity):
     return force / velocity
 
 def accelerance(force, acceleration):
     """omega^2/k at low end; 1/m at high end"""
     return acceleration / force
+
 def dynamic_mass(force, acceleration):
     """inverse of accelerance terms"""
     return force / acceleration

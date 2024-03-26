@@ -43,6 +43,7 @@ from dynamight.gui.sidebar import Sidebar2
 from dynamight.gui.trim_widget import TrimWidget
 from dynamight.gui.psd_widget import PsdWidget
 from dynamight.gui.srs_widget import SrsWidget
+from dynamight.gui.equation_widget import EquationWidget
 from dynamight.core.time import TimeSeries
 from dynamight.core.psd import PowerSpectralDensity
 from dynamight.core.srs import ShockResponseSpectra
@@ -82,12 +83,16 @@ class MainWindow(QMainWindow):
         self.tab_psd = QWidget(self)
         #self.tab_vrs = QWidget(self)
         self.tab_srs = QWidget(self)
+        self.tab_equation = QWidget(self)
+
+        tabs.addTab(self.tab_equation, 'Equation')
 
         tabs.addTab(self.tab_time, 'Time Domain')
         tabs.addTab(self.tab_psd, 'PSD-Freq Domain')
         #tabs.addTab(self.tab_vrs, 'VRS-Freq Domain')
         tabs.addTab(self.tab_srs, 'SRS-Freq Domain')
         #self.tab_freq.setDisabled(True)
+        self.tab_equation.hide()
         self.tab_psd.hide()
         self.tab_srs.hide()
 
@@ -105,6 +110,7 @@ class MainWindow(QMainWindow):
         self.is_psd = False
         self.is_srs = False
         self.analyze_widgets = {
+            'equation': EquationWidget(self),
             'trim': TrimWidget(self),
             'psd': PsdWidget(self),
             'srs': SrsWidget(self),
@@ -120,8 +126,8 @@ class MainWindow(QMainWindow):
         self.create_menu_actions()
 
         x = y = 300
-        width = 500
-        height = 500
+        width = 1000
+        height = 1000
         self.setGeometry(x, y, width, height)
         #helloMsg = QLabel("<h1>Hello, World!</h1>", parent=window)
 
@@ -131,6 +137,7 @@ class MainWindow(QMainWindow):
         #self.setFixedSize(tabs.sizeHint())
 
         #helloMsg.move(60, 15)
+        self._equation_ax = self.create_static_canvas(self.tab_equation, domain='equation')
         self._time_ax = self.create_static_canvas(self.tab_time, domain='time')
         self._psd_ax = self.create_static_canvas(self.tab_psd, domain='freq')
         self._srs_ax = self.create_static_canvas(self.tab_srs, domain='freq')
@@ -154,7 +161,8 @@ class MainWindow(QMainWindow):
                 'show_debug', 'show_info', 'show_warning', 'show_error', 'show_command', ]
         # ---------------------------------------------------------------------------------
         analyze = [
-            'trim', '',
+            'equation',
+            'trim', 'filter', '',
             'psd', 'set_psd_limits', '',
             'vrs', '',
             'srs','set_srs_limits', '',
@@ -183,6 +191,7 @@ class MainWindow(QMainWindow):
             'exit': ('Exit...', '', 'Ctrl+Q', 'exits the thingy', None, no_check),
 
             'about'        : ('About...',     '', '', 'about the program', self.on_about, no_check),
+            'equation_dock': ('Equation Dock','', '', 'Show/Hide equation_dock', None, checked),
             'log_dock'     : ('Log Dock',     '', '', 'Show/Hide log_dock', None, checked),
             'res_dock'     : ('Results Dock', '', '', 'Show/Hide results dock', None, checked),
             'analyze_dock' : ('Analyze Dock', '', '', 'Show/Hide analyze dock', None, checked),
@@ -194,6 +203,7 @@ class MainWindow(QMainWindow):
             'show_error'  : ('Show ERROR',   'show_error.png',   '', 'Show "ERROR" messages', self.on_show_error, checked),
 
             # analyze
+            'equation' : ('Equation', '', 'Ctrl+E', 'Make an equation',                                        partial(self._show_sidebar, 'equation'), no_check),
             'trim'  : ('Trim Time', '', '', 'Trim a time series',                                              partial(self._show_sidebar, 'trim'), no_check),
             'psd'  : ('PSD',        '', '', 'Calculates a PSD (power spectral density) of the shown data',     partial(self._show_sidebar, 'psd'), no_check),
             'vrs'  : ('VRS',        '', '', 'Calculates a VRS (vibration response spectra) of the shown data', partial(self._show_sidebar, 'vrs'), no_check),
@@ -209,32 +219,39 @@ class MainWindow(QMainWindow):
 
         build_menu_bar(self, menu_bar, menu_bar_dict, actions_dict)
         self.setMenuBar(menu_bar)
+        self.cases: dict[int, int] = {}
+        self.form: list[tuple] = []
 
-    def get_form(self) -> list:
-        i = 0
-        form = []
-        return i, form
+    def get_form_cases(self) -> tuple[int, list[tuple], dict[int, int]]:
+        i = len(self.cases)
+        return i, self.form, self.cases
 
-    def set_form(self, form: list) -> None:
+    def set_form_cases(self, form: list[tuple], cases: dict[int, int]) -> None:
+        self.cases = cases
         self.res_widget.result_method_window.set_form(form)
 
     def on_load_time_csv(self):
-        filetypes = 'Comma Separated Value (*.csv);;Space/Tab Separated Value (*.dat);;All files (*)'
         """opens a file dialog"""
-        default_filename = ''
-        file_types = 'Delimited Text (*.txt; *.dat; *.csv)'
-        csv_filename, filt = open_file_dialog(self, 'Select a CSV File', default_filename, file_types)
+        if 0:
+            #filetypes = 'Comma Separated Value (*.csv);;Space/Tab Separated Value (*.dat);;All files (*)'
+            default_filename = ''
+            file_types = 'Delimited Text (*.txt; *.dat; *.csv)'
+            csv_filename, filt = open_file_dialog(self, 'Select a CSV File', default_filename, file_types)
+        else:
+            csv_filename = r'C:\NASA\m4\formats\git\dynamight\dynamight\gui\spike.csv'
+
         time_series = TimeSeries.load_from_csv_filename(csv_filename)
-        i, form = self.get_form()
+        i, form, cases = self.get_form_cases()
 
         columns = []
-        for label in time_series.label:
+        for ilabel, label in enumerate(time_series.label):
             columns.append((label, i, []))
+            cases[i] = (i, ilabel, label, time_series)
             i += 1
-
         formi = (csv_filename, None, columns)
         form.append(formi)
-        self.set_form(form)
+
+        self.set_form_cases(form, cases)
 
     @property
     def colors(self):
@@ -304,6 +321,16 @@ class MainWindow(QMainWindow):
 
     #------------------------------------------------------------------------
     # plotting
+    def on_equation(self, equation: str) -> None:
+        if len(equation) == 0:
+            return
+        ax = self._equation_ax
+        ax.clear()
+        ax.set_title('$'+ equation +'$')
+        fig = ax.get_figure()
+        fig.canvas.draw()
+        self.log_command(f'self.on_equation({equation})')
+
     def on_trim_data(self, trims: list[tuple[float, float]]):
         if len(trims) == 0:
             return
@@ -429,6 +456,9 @@ class MainWindow(QMainWindow):
         elif domain == 'freq':
             xlabel = 'Frequency (Hz)'
             ylabel = 'PSD ($g^2$/Hz)'
+        elif domain == 'equation':
+            xlabel = ''
+            ylabel = ''
         else:
             raise RuntimeError(domain)
 

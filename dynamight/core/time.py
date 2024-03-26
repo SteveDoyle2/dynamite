@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional # , Union
 import numpy as np
 import scipy as sp
+import pandas as pd
 import matplotlib.pyplot as plt
 from dynamight.core.load_utils import _update_label, _response_squeeze
 import dynamight.core.fourier_transform as ft
@@ -35,6 +36,22 @@ class TimeSeries:
     @property
     def tmax(self) -> float:
         return self.time[-1]
+
+    @classmethod
+    def load_from_csv_filename(cls, csv_filename: str, delimiter: str=','):
+        delimiter = None
+        if csv_filename.lower().endswith('.csv'):
+            delimiter = ','
+        time_data = np.loadtxt(csv_filename, delimiter=delimiter)
+        time = time_data[:, 0]
+        data = pd.read_csv(csv_filename, delimiter=delimiter)
+        cols = data.columns
+        time = data[cols[0]].to_numpy()
+        labels = cols[1:]
+        response = data[labels].to_numpy()
+
+        labels = [label.strip() for label in labels.tolist()]
+        return TimeSeries(time, response, label=labels)
 
     def to_fft(self, sided: int=1, fft_type: str='real_imag') -> ft.FourierTransform:
         tmax = self.tmax
