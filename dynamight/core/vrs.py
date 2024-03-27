@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #import dynamight.core.time as dynatime
+from dynamight.typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 
 #from dynamight.core.time import TimeSeries

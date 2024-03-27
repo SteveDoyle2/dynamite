@@ -1,0 +1,1 @@
+Limit = tuple[float, float]

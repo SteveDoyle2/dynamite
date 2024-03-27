@@ -10,6 +10,12 @@ from matplotlib.pyplot import savefig
 
 
 def fft_to_psd_df(frequency: np.ndarray, fft_response: np.ndarray) -> np.ndarray:
+    """
+    PSD = (X * X^) / df
+    where:
+      - X : DFT
+      - X^: Conjugate transpose of DFT
+    """
     df = frequency[1] - frequency[0]
     psd_response = fft_response * np.conj(fft_response) / df
     return psd_response.real
@@ -90,6 +96,17 @@ def psd_to_twosided(frequency: np.ndarray, response: np.ndarray,
 
 def _to_twosided_fsampling(fmax: float, df: float,
                            sided: int, is_onesided_center: bool) -> float:
+    """
+    fmax = 10000.
+    sided = 2
+    >>> _to_twosided_fsampling(fmax, sided)
+    10000
+
+    fmax = 5000.
+    sided = 1
+    >>> _to_twosided_fsampling(fmax, sided)
+    10000
+    """
     if sided == 2:
         fsampling = fmax
     else:
