@@ -13,6 +13,7 @@ import dynamight.core.fourier_transform as ft
 import dynamight.core.psd as dypsd # PowerSpectralDensity
 from dynamight.core.freq_utils import fft_to_psd_df
 from dynamight.core.srs import ShockResponseSpectra, time_to_srs
+from dynamight.core.plot_utils import _set_grid, get_colors
 
 
 class TimeSeries:
@@ -29,8 +30,17 @@ class TimeSeries:
 
         assert isinstance(time_response, np.ndarray), time_response
         self.response = time_response
-
         self.label = _update_label(label)
+        self.xmin = 0.0
+        self.xmax = 1.0
+
+    def set_colormap(self, colormap_name: str='viridis') -> None:
+        self.colormap_name = colormap_name
+
+    def get_colors(self) -> np.ndarray:
+        colors = get_colors(self.colormap_name, self.xmin, self.xmax,
+                            self.nresponses)
+        return colors
 
     @property
     def ntimes(self) -> int:

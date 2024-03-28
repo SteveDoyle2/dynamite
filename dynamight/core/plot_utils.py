@@ -1,6 +1,18 @@
+from itertools import cycle
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+
+def get_colors(colormap_name: str,
+               xmin: float, xmax: float,
+               nresponses: int) -> np.ndarray:
+    if colormap_name:
+        x = np.linspace(xmin, xmax, num=nresponses)[::-1]
+        colormap = plt.get_cmap(colormap_name)
+        colors = colormap(x)
+    else:
+        colors = cycle(['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'])
+    return colors
 
 def _set_grid(ax: plt.Axes, xscale: str, yscale: str) -> None:
     ax.set_xscale(xscale)
