@@ -4,6 +4,7 @@ import numpy as np
 import scipy as sp
 #import pandas as pd
 import matplotlib.pyplot as plt
+from dynamight.typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 import dynamight.core.time as dytime
 import dynamight.core.psd as dypsd # PowerSpectralDensity
@@ -24,6 +25,9 @@ class FourierTransform:
         self.is_onesided_center = is_onesided_center
         assert is_onesided_center is not None
         assert fft_type in {'real_imag', 'mag_phase'}, fft_type
+        nfreq = len(frequency)
+        assert self.response.ndim == 2, self.response.shape
+        assert self.response.shape[0] == nfreq, self.response.shape
 
     @property
     def df(self) -> float:
@@ -68,7 +72,7 @@ class FourierTransform:
         self.is_onesided_center = is_onesided_center
         return self
 
-    def mag_phase(self) -> tuple[np.ndarray, np.ndarray]:
+    def mag_phase(self, is_phase_deg: bool=False) -> tuple[np.ndarray, np.ndarray]:
         response = self.response[:, 0]
         if self.fft_type == 'mag_phase':
             # e * (i theta) = cos(theta) + 1j*sin(theta)
@@ -77,6 +81,8 @@ class FourierTransform:
         else:
             mag = np.abs(response)
             phase = np.arctan2(response.imag, response.real)
+        if is_phase_deg:
+            return mag, np.degrees(phase)
         return mag, phase
 
     def real_imag(self) -> np.ndarray:
@@ -92,7 +98,9 @@ class FourierTransform:
 
     def plot_real_imag(self, ifig: int=1,
                        ax: Optional[tuple[plt.Axes, plt.Axes]]=None,
-                       xscale: str='linear', show: bool=True):
+                       xscale: str='log',
+                       xlim: Optional[tuple[float, float]]=None,
+                       show: bool=True):
         if ax is None:
             fig = plt.figure(ifig)
             ax1, ax2 = fig.subplots(nrows=2)
@@ -100,7 +108,7 @@ class FourierTransform:
             ax1, ax2 = ax
 
         #ax.set_yscale(yscale)
-        ax1.set_title('Fourier Transform - Real/Imag')
+        ax1.set_title(f'Fourier Transform - Real/Imag; sided={self.sided}')
         ax1.set_xlabel('Frequency (Hz)')
         ax2.set_xlabel('Frequency (Hz)')
 
@@ -115,18 +123,22 @@ class FourierTransform:
         ax2.plot(self.frequency, imag, '-o', label=self.label[0])
         ax2.legend()
         _adjust_axes_limit(ax2, imag)
-        _set_grid(ax1, xscale, 'linear')
-        _set_grid(ax2, xscale, 'linear')
+        _set_grid(ax1, xscale, yscale='linear')
+        _set_grid(ax2, xscale, yscale='linear')
+        if xlim:
+            ax1.set_xlim(xlim)
+            ax2.set_xlim(xlim)
         if show:
             plt.show()
 
     def plot_mag(self, ifig: int=1,
                  ax: Optional[plt.Axes]=None,
                  y_units: str='g',
-                 xscale: str='linear',
-                 yscale: str='linear',
+                 xscale: str='log',
+                 yscale: str='log',
+                 xlim: Optional[Limit]=None,
                  linestyle: str='-o',
-                 show: bool=True):
+                 show: bool=True) -> plt.Axes:
         if ax is None:
             fig = plt.figure(ifig)
             ax = fig.gca()
@@ -139,32 +151,46 @@ class FourierTransform:
         ax.set_ylabel(f'Magnitude ({y_units})')
         #ax.set_yticklabels(['{:,.0%}'.format(x) for x in current_values])
         _set_grid(ax, xscale, yscale)
+        if xlim:
+            ax.set_xlim(xlim)
         if show:
             plt.show()
+        return ax
 
     def plot_mag_phase(self, ifig: int=1,
                        ax: Optional[tuple[plt.Axes, plt.Axes]]=None,
-                       xscale: str='linear', show: bool=True):
+                       xlim: Optional[Limit]=None,
+                       xscale: str='log',
+                       yscale_mag: str='log',
+                       linestyle: str='-o',
+                       mag_unit: str='g',
+                       is_phase_deg: bool=True,
+                       show: bool=True) -> tuple[plt.Axes, plt.Axes]:
         if ax is None:
             fig = plt.figure(ifig)
             ax1, ax2 = fig.subplots(nrows=2)
         else:
             ax1, ax2 = ax
-        ax1.set_title('Fourier Transform - Mag/Phase')
+        ax1.set_title(f'Fourier Transform - Mag/Phase; sided={self.sided}')
         ax1.set_xlabel('Frequency (Hz)')
         ax2.set_xlabel('Frequency (Hz)')
 
-        mag, phase = self.mag_phase()
-        ax1.plot(self.frequency, mag, '-o')
-        ax2.plot(self.frequency, phase, '-o', label=self.label[0])
+        mag, phase = self.mag_phase(is_phase_deg=is_phase_deg)
+        ax1.plot(self.frequency, mag, linestyle)
+        ax2.plot(self.frequency, phase, linestyle, label=self.label[0])
         ax2.legend()
-        ax1.set_ylabel('Magnitude (g)')
-        ax2.set_ylabel('Phase (rad)')
+
+        mag_ylabel = 'Magnitude' + f'({mag_unit})' if mag_unit else ''
+        phase_ylabel = 'Phase (deg)' if is_phase_deg else 'Phase (rad)'
+        ax1.set_ylabel(mag_ylabel)
+        ax2.set_ylabel(phase_ylabel)
         _adjust_axes_limit(ax2, phase)
 
-        _set_grid(ax1, xscale, 'linear') # yscale
-        _set_grid(ax2, xscale, 'linear') # yscale
+        _set_grid(ax1, xscale, yscale=yscale_mag) # mag
+        _set_grid(ax2, xscale, yscale='linear')   # phase
+        if xlim:
+            ax1.set_xlim(xlim)
+            ax2.set_xlim(xlim)
         if show:
             plt.show()
-
-
+        return ax1, ax2
