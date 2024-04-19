@@ -1,9 +1,15 @@
+from __future__ import annotations
+from copy import deepcopy
+
 from typing import Optional
+
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
 #import dynamight.core.time as dynatime
+from dynamight.typing import Limit
+from dynamight.utils.lttb import array_largest_triangle_three_buckets
 from dynamight.core.load_utils import _update_label, _response_squeeze
 
 import dynamight.core.time as dytime
@@ -11,17 +17,18 @@ import dynamight.core.fourier_transform as ft
 import dynamight.core.vrs as dynvrs # VibrationResponseSpectra
 from dynamight.core.freq_utils import _to_twosided_fsampling, psd_to_onesided, psd_to_twosided
 #from dynamight.plotting.utils import _set_grid
-from dynamight.core.plot_utils import _set_grid
+from dynamight.core.plot_utils import _set_grid, get_colors
 
 
 class PowerSpectralDensity:
-    def __init__(self, frequency: np.ndarray, psd_response: np.ndarray, label: list[str],
-                 sided: int=1, is_onesided_center: bool=None, octave_spacing: int=0):
+    def __init__(self, frequency: np.ndarray, psd_response: np.ndarray,
+                 label: list[str], sided: int=1,
+                 is_onesided_center: bool=None, octave_spacing: int=0):
         if psd_response.ndim == 1:
             psd_response = psd_response.reshape(len(psd_response), 1)
         if 'complex' in psd_response.dtype.name:
             raise TypeError(psd_response)
-        assert psd_response.shape[1] == 1, psd_response.shape
+        #assert psd_response.shape[1] == 1, psd_response.shape
         assert psd_response.ndim == 2, psd_response.shape
         self.frequency = frequency
         self.response = psd_response
@@ -36,9 +43,16 @@ class PowerSpectralDensity:
         assert isinstance(frequency, np.ndarray), type(frequency)
         assert isinstance(psd_response, np.ndarray), type(psd_response)
         #print('psd-init', self.fsampling, self.df, self.is_onesided_center)
+        self.colormap_name = ''
+        self.xmin = 0.0
+        self.xmax = 1.0
 
     @property
-    def df(self):
+    def nresponses(self) -> int:
+        return self.response.shape[1]
+
+    @property
+    def df(self) -> float:
         if self.octave_spacing == 0:
             return self.frequency[1] - self.frequency[0]
         raise RuntimeError(self.octave_spacing)
@@ -55,7 +69,7 @@ class PowerSpectralDensity:
             return fsampling
         raise RuntimeError(self.octave_spacing)
 
-    def to_time_series(self):
+    def to_time_series(self) -> dytime.TimeSeries:
         if self.sided == 1:
             self = self.to_twosided(inplace=False)
 
@@ -65,7 +79,7 @@ class PowerSpectralDensity:
             magnitude = np.sqrt(self.response * self.df)
             npoints = len(self.frequency)
             phase = np.random.uniform(-1., 1.) * np.pi
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(self.octave_spacing)
         real_imag = magnitude * np.cos(phase) + 1j * np.sin(phase)
         real_imag *= npoints
@@ -94,7 +108,8 @@ class PowerSpectralDensity:
         grms : (nfreq, nresponse) float array
             the Grms response
 
-        https://femci.gsfc.nasa.gov/random/MilesEqn.html#:~:text=Miles'%20Equation%20calculates%20the%20square,with%20the%20GRMS%20value.&text=%2D%20Response%20Parameters%20%2D%20Miles'%20Equation,such%20as%20stress%20or%20displacement."""
+        https://femci.gsfc.nasa.gov/random/MilesEqn.html#:~:text=Miles'%20Equation%20calculates%20the%20square,with%20the%20GRMS%20value.&text=%2D%20Response%20Parameters%20%2D%20Miles'%20Equation,such%20as%20stress%20or%20displacement.
+        """
         #zeta = 1 / (2 * Q)
         freq = self.frequency[:, np.newaxis]
         grms = sigma * np.sqrt(np.pi * Q / 2 * freq * self.response)
@@ -118,7 +133,9 @@ class PowerSpectralDensity:
         return trans
 
     def to_sdof_vrs_response(self, Q: float, fn: float) -> dynvrs.VibrationResponseSpectra:
-        """http://www.vibrationdata.com/tutorials_alt/frf.pdf"""
+        """
+        http://www.vibrationdata.com/tutorials_alt/frf.pdf
+        """
         zeta = 1 / (2 * Q)
         freq2 = self.frequency ** 2
         num = -fn ** 2 * freq2
@@ -132,7 +149,10 @@ class PowerSpectralDensity:
         return vrsi
 
     def to_vrs(self, Q: float) -> dynvrs.VibrationResponseSpectra:
-        """vibration response spectra"""
+        """
+        vibration response spectra
+        http://www.vibrationdata.com/tutorials2/vrs.pdf
+        """
         zeta = 1 / (2 * Q)
         df = np.diff(self.frequency).mean()
         if 0:
@@ -225,6 +245,11 @@ class PowerSpectralDensity:
         grms = get_grms(self.frequency, self.response)
         return grms
 
+    def downsample_by_n(self, n: int):
+        self.frequency = self.frequency[::n]
+        self.response = self.response[::n, :]
+        return self
+
     def resample(self, frequency: np.ndarray, inplace: bool=True):
         """uses a log-log interp"""
         # TODO: get rid of for loop
@@ -245,23 +270,87 @@ class PowerSpectralDensity:
                 octave_spacing=self.octave_spacing)
         return out
 
+    def set_colormap(self, colormap_name: str='viridis') -> None:
+        self.colormap_name = colormap_name
+
+    def get_colors(self) -> np.ndarray:
+        colors = get_colors(self.colormap_name, self.xmin, self.xmax,
+                            self.nresponses)
+        return colors
+
+    def get_maximax(self) -> np.ndarray:
+        resp_maximax = self.response.max(axis=1)
+        assert len(self.frequency) == len(resp_maximax)
+        return resp_maximax
+
+    def get_log_mean(self,
+                     filter_nan: bool=False) -> np.ndarray:
+        ylog = np.log10(self.response)
+        if filter_nan:
+            ylogmean = np.nanmean(ylog, axis=1)
+        else:
+            ylogmean = ylog.mean(axis=1)
+            maxi = ylogmean.max()
+            assert np.isfinite(maxi), maxi
+        return 10 ** ylogmean
+
+    def filter_below_curve(self, curve: np.ndarray) -> PowerSpectralDensity:
+        psd = deepcopy(self)
+        nfreq = self.response.shape[0]
+        response2 = deepcopy(self.response)
+        for ifreq, yi in zip(range(nfreq), curve):
+            respi = self.response[ifreq, :]
+            response2[ifreq, respi < yi] = np.nan
+        psd.response = response2
+        return psd
+
+    def filter_by_log_mean(self) -> np.ndarray:
+        ylogmean = self.get_log_mean()
+        self.filter_below_curve(ylogmean)
+
     def plot(self, ifig: int=1,
              ax: Optional[plt.Axes]=None,
              y_units: str='g', xscale: str='log', yscale: str='log',
-             xlim: Optional[tuple[float, float]]=None,
-             ylim: Optional[tuple[float, float]]=None,
+             xlim: Optional[Limit]=None,
+             ylim: Optional[Limit]=None,
              linestyle='-o',
-             show: bool=True):
+             title: str='Power Spectral Density',
+             threshold=None,
+             plot_maximax: bool=False,
+             show: bool=True) -> tuple[plt.Figure, plt.Axes]:
         self.fsampling
         self.df
         if ax is None:
             fig = plt.figure(ifig)
             ax = fig.gca()
-        ax.set_title('PSD')
+        else:
+            fig = ax.get_figure()
+        if title:
+            ax.set_title(title)
         ax.set_xlabel('Frequency (Hz)')
         assert self.octave_spacing == 0, self.octave_spacing
         ax.set_ylabel(f'PSD (${y_units}^2$/Hz)')
-        ax.plot(self.frequency, self.response[:, 0], linestyle, label=self.label[0])
+
+        colors = self.get_colors()
+
+        threshold = 0
+        if threshold == 0:
+            for iresp, color in zip(range(self.nresponses), colors):
+                ax.plot(self.frequency, self.response[:, iresp],
+                        linestyle, label=self.label[0], color=color)
+        else:
+            if threshold is None:
+                threshold = len(self.frequency) // 20
+            for iresp, color in zip(range(self.nresponses), colors):
+                datai = array_largest_triangle_three_buckets(
+                    self.frequency, self.response[:, iresp], threshold, color=color)
+                ax.plot(datai[0], datai[1],
+                        linestyle, label=self.label[0])
+
+        if plot_maximax:
+            resp_maximax = self.get_maximax()
+            ax.plot(self.frequency, resp_maximax,
+                    linestyle, color='k', label='Maximax')
         ax.legend()
         if xlim is not None:
             ax.set_xlim(xlim)
@@ -270,6 +359,24 @@ class PowerSpectralDensity:
         _set_grid(ax, xscale, yscale)
         if show:
             plt.show()
+        return fig, ax
+
+    def plot_log_mean(self, ax: plt.Axes,
+                      xlim: Optional[Limit]=None,
+                      filter_nan: bool=False,
+                      linestyle: str='-',
+                      linewidth: int=1,
+                      color: str='k',
+                      label: str='log mean') -> np.ndarray:
+        log_mean = self.get_log_mean(filter_nan=filter_nan)
+        if label == '':
+            label = None
+        ax.plot(self.frequency, log_mean,
+                color=color, linestyle=linestyle, linewidth=linewidth,
+                label=label)
+        if label:
+            ax.legend()
+        return log_mean
 
 
 def get_grms(frequency: np.ndarray,

@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #import dynamight.core.time as dynatime
+from dynamight.typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 
 #from dynamight.core.time import TimeSeries
@@ -16,6 +17,7 @@ from dynamight.core.plot_utils import _set_grid
 
 
 class VibrationResponseSpectra:
+    """A VRS """
     def __init__(self, frequency: np.ndarray, vrs_response: np.ndarray, label: list[str],
                  sided: int=1, is_onesided_center: bool=None, octave_spacing: int=0):
         if vrs_response.ndim == 1:
@@ -60,8 +62,8 @@ class VibrationResponseSpectra:
              y_units: str='g', xscale: str='log', yscale: str='log',
              xlim: Optional[tuple[float, float]]=None,
              ylim: Optional[tuple[float, float]]=None,
-             linestyle='-o',
-             show: bool=True):
+             linestyle: str='-o',
+             show: bool=True) -> tuple[plt.Figure, plt.Axes]:
         #self.fsampling
         #self.df
         if ax is None:
@@ -80,4 +82,5 @@ class VibrationResponseSpectra:
             ax.set_ylim(ylim)
         if show:
             plt.show()
+        return fig, ax
 

@@ -1,8 +1,11 @@
 from itertools import count
 from typing import Optional
+
 import numpy as np
 from scipy.signal import lfilter
 import matplotlib.pyplot as plt
+
+from dynamight.typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 from dynamight.core.plot_utils import _set_grid, _adjust_axes_limit
 
@@ -46,19 +49,20 @@ class ShockResponseSpectra:
                        ax: Optional[plt.Axes]=None,
                        linestyle='-',
                        short_ylabel: bool=False,
-                       show: bool=True):
+                       show: bool=True) -> tuple[plt.Figure, plt.Axes]:
         fig, ax = get_fig_ax(ax=ax, ifig=ifig)
         ax.set_xlabel('Frequency (Hz)')
         ax.set_ylabel(f'SRS Acceleration (g); Q={self.Q:g}')
         _plot(ax, self.frequency,
               self.srs_max, self.srs_min,
               linestyle, self.label, show=show)
+        return fig, ax
 
     def plot_pseudo_displacement_srs(self, ifig: int=0,
                                      ax: Optional[plt.Axes]=None,
                                      linestyle='-',
                                      short_ylabel: bool=False,
-                                     show: bool=True):
+                                     show: bool=True) -> tuple[plt.Figure, plt.Axes]:
         fig, ax = get_fig_ax(ax=ax, ifig=ifig)
         if short_ylabel:
             ylabel = f'Pseudo-Displacement SRS ({self.displacement_units}); Q={self.Q:g}'
@@ -69,12 +73,13 @@ class ShockResponseSpectra:
         _plot(ax, self.frequency,
               self.rel_disp_max, self.rel_disp_min,
               linestyle, self.label, show=show)
+        return fig, ax
 
     def plot_pseudo_velocity_srs(self, ifig: int=0,
                                  ax: Optional[plt.Axes]=None,
                                  linestyle='-',
                                  short_ylabel: bool=False,
-                                 show: bool=True):
+                                 show: bool=True) -> tuple[plt.Figure, plt.Axes]:
         fig, ax = get_fig_ax(ax=ax, ifig=ifig)
         if short_ylabel:
             ylabel = f'Pseudo-Velocity SRS ({self.displacement_units}/s); Q={self.Q:g}'
@@ -88,12 +93,13 @@ class ShockResponseSpectra:
               self.rel_disp_max*omega,
               self.rel_disp_min*omega,
               linestyle, self.label, show=show)
+        return fig, ax
 
     def plot_pseudo_accel_srs(self, ifig: int=0,
                               ax: Optional[plt.Axes]=None,
                               linestyle='-',
                               short_ylabel: bool=False,
-                              show: bool=True):
+                              show: bool=True) -> tuple[plt.Figure, plt.Axes]:
         fig, ax = get_fig_ax(ax=ax, ifig=ifig)
         if short_ylabel:
             ylabel = f'Pseudo-Accel SRS ({self.displacement_units}/$s^2$); Q={self.Q:g}'
@@ -107,6 +113,7 @@ class ShockResponseSpectra:
               self.rel_disp_max*omega2,
               self.rel_disp_min*omega2,
               linestyle, self.label, show=show)
+        return fig, ax
 
 def get_fig_ax(ax: Optional[plt.Axes]=None,
                ifig: int=0,) -> tuple[plt.Figure, plt.Axes]:
