@@ -62,7 +62,7 @@ class VibrationResponseSpectra:
              y_units: str='g', xscale: str='log', yscale: str='log',
              xlim: Optional[tuple[float, float]]=None,
              ylim: Optional[tuple[float, float]]=None,
-             linestyle: str='-o',
+             linestyle: str='-',
              show: bool=True) -> tuple[plt.Figure, plt.Axes]:
         #self.fsampling
         #self.df

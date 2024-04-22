@@ -76,7 +76,18 @@ def signal_stats(a, b, num):
 
 def psd_db_scale(response: np.ndarray,
                  dB: float) -> np.ndarray:
-    """6 dB = 4x"""
+    """6 dB = 4x
+
+    3dB (3.01dB to be exact) is a factor of 2 for ASD
+    curves (g2/Hz),
+    while 6dB is a factor of 2 for grms values.
+
+    For example, reducing a peak ASD value of 12g2/Hz -3dB
+    would give you 6g2/Hz; reducing a value of 12grms -3dB
+    results in a value of 8.48grms and reducing it -6dB
+    results in a value of 6.0grms. This tends to be confusing
+    for people new to random vibration.
+    """
     scale = 10 ** (dB / 10)
     return response * scale
 
@@ -84,7 +95,7 @@ def grms_srs_db_scale(response: np.ndarray,
                  dB: float) -> np.ndarray:
     """
     3 dB = 2x
-    Used for gRMS and Shock
+    Used for gRMS and Shock ???
     """
     scale = 20 ** (dB / 10)
     return response * scale

@@ -1,4 +1,4 @@
-#from dynamight.core.time_series import
+from __future__ import annotations
 from typing import Optional
 import numpy as np
 import scipy as sp
@@ -137,7 +137,7 @@ class FourierTransform:
                  xscale: str='log',
                  yscale: str='log',
                  xlim: Optional[Limit]=None,
-                 linestyle: str='-o',
+                 linestyle: str='-',
                  show: bool=True) -> plt.Axes:
         if ax is None:
             fig = plt.figure(ifig)
@@ -162,7 +162,7 @@ class FourierTransform:
                        xlim: Optional[Limit]=None,
                        xscale: str='log',
                        yscale_mag: str='log',
-                       linestyle: str='-o',
+                       linestyle: str='-',
                        mag_unit: str='g',
                        is_phase_deg: bool=True,
                        show: bool=True) -> tuple[plt.Axes, plt.Axes]:

@@ -24,6 +24,14 @@ class PowerSpectralDensity:
     def __init__(self, frequency: np.ndarray, psd_response: np.ndarray,
                  label: list[str], sided: int=1,
                  is_onesided_center: bool=None, octave_spacing: int=0):
+        """
+        Parameters
+        ----------
+        is_onesided_center : bool
+            True:  octave spacing related?
+            False: not octave spaced or ???
+
+        """
         if psd_response.ndim == 1:
             psd_response = psd_response.reshape(len(psd_response), 1)
         if 'complex' in psd_response.dtype.name:
@@ -116,7 +124,7 @@ class PowerSpectralDensity:
         #yrms = sigma * np.sqrt(Q / (np.pi**3 * 32 * freq**3) * self.response)
         return grms
 
-    def to_sdof_transmissibility(self, Q: float, fn: float):
+    def to_sdof_transmissibility(self, Q: float, fn: float) -> ft.FourierTransform:
         """https://www.dataphysics.com/blog/shock-analysis/understanding-shock-response-spectra/"""
         rho = self.frequency / fn
         rho2 = rho ** 2
@@ -410,9 +418,15 @@ def get_grms(frequency: np.ndarray,
     is_close = np.isclose(m, -ten_log2)
     not_close = ~is_close
 
-    A = np.zeros(psd_high.shape, dtype=psd_high.dtype)
-    A[not_close] = ten_log2 * psd_high[not_close] / (ten_log2 + m[not_close]) * \
-        (fhigh[:, np.newaxis][not_close] - flow[:, np.newaxis][not_close] * (flow_fhigh[:, np.newaxis][not_close]) ** exp[not_close])
+    if np.all(not_close):
+        a = ten_log2 * psd_high / (ten_log2 + m)
+        b = flow_fhigh[:, np.newaxis] ** exp
+        A = ten_log2 * psd_high / (ten_log2 + m) * \
+            (fhigh[:, np.newaxis] - flow[:, np.newaxis] * (flow_fhigh[:, np.newaxis]) ** exp)
+    else:
+        A = np.zeros(psd_high.shape, dtype=psd_high.dtype)
+        A[not_close] = ten_log2 * psd_high[not_close] / (ten_log2 + m[not_close]) * \
+            (fhigh[:, np.newaxis][not_close] - flow[:, np.newaxis][not_close] * (flow_fhigh[:, np.newaxis][not_close]) ** exp[not_close])
 
     if is_close.sum():
         A[is_close] = psd_low[is_close] * flow[:, np.newaxis][is_close] * np.log(fhigh_flow[:, np.newaxis][is_close])
