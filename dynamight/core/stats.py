@@ -92,12 +92,12 @@ def psd_db_scale(response: np.ndarray,
     return response * scale
 
 def grms_srs_db_scale(response: np.ndarray,
-                 dB: float) -> np.ndarray:
+                      dB: float) -> np.ndarray:
     """
     3 dB = 2x
-    Used for gRMS and Shock ???
+    Used for gRMS and Shock
     """
-    scale = 20 ** (dB / 10)
+    scale = 10 ** (dB/20)
     return response * scale
 
 def bessel_correction(frequency: np.ndarray,
