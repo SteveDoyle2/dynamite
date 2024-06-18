@@ -499,17 +499,15 @@ def part2(dirname: Path, dat_filename: Path, basename: str, xlim) -> None:
     smc_min_work_bound = np.array([
         [20, 0.0053],
         [150, 0.04],
-        [330, 0.04],
-        [396, 0.077],
-        [450, 0.0555],
-        [590, 0.0555],
-        #[700, 0.16],
-        #[800, 0.16],
-        [700, 0.12],
-        [800, 0.12],
-        [890, 0.0322],
-        #[1020, 0.0246],
-        #[1080, 0.022],
+        [290, 0.04],
+        [320, 0.1],
+        [350, 0.2],
+        [396, 0.25],
+        [420, 0.25],
+        [520, 0.14],
+        [680, 0.35],
+        [800, 0.35],
+        [983.4, 0.02647],
         [2000, 0.0064],
     ])
     #asdf = get_grms(smc_min_work_bound[:, 0], smc_min_work_bound)
@@ -584,6 +582,7 @@ def part2(dirname: Path, dat_filename: Path, basename: str, xlim) -> None:
     grms_mpe = grms_from_psd(mpe)
     #grms_mpe_octave = area(mpe_octave)[0]
     grms_p95_50 = grms_from_psd(p95_50)
+    grms_p95_50_oct = grms_from_psd(p95_50_oct)
     grms_atp = grms_from_psd(smc_min_work_bound)
 
     #psd2 = ft.to_psd(sided=1)
@@ -591,12 +590,12 @@ def part2(dirname: Path, dat_filename: Path, basename: str, xlim) -> None:
     # pre-10x scale = 0.016 grms
     # peak at .000243 @ 254 Hz
     # -> 10x time scale -> 100x PSD scale
-    ax1.loglog(freq,             log_mean1[:, 1],  color='grey', label='Base Input '+f'(GRMS={grms1:.2f})')
-    ax1.loglog(response[:, 0],   response[:, 1],   color='C0', label='Response = Base$*$Component '+f'(GRMS={grms_response:.2f})')
-    ax1.loglog(mpe[:, 0],        mpe[:, 1],        color='C1', label='MPE (+6 dB)'+f'(GRMS={grms_mpe:.2f})')
-    ax1.loglog(p95_50[:, 0],     p95_50[:, 1],     color='C2', label='P95/50  (+10.9 dB)'+f'(GRMS={grms_p95_50:.2f})')
-    ax1.loglog(p95_50_oct[:, 0], p95_50_oct[:, 1], color='C3', label='P95/50 $1/6^{th} Octave$'+f' (GRMS={grms_p95_50:.2f})')
-    ax1.loglog(smc_min_work_bound[:, 0], smc_min_work_bound[:, 1], color='C4', label='ATP Test Levels '+f'(GRMS={grms_atp:.2f})')
+    ax1.loglog(freq,             log_mean1[:, 1],                  color='grey', label='Base Input '                 +f' (GRMS={grms1:.2f})')
+    ax1.loglog(response[:, 0],   response[:, 1],                   color='C0',   label='Response = Base$*$Component '+f' (GRMS={grms_response:.2f})')
+    ax1.loglog(mpe[:, 0],        mpe[:, 1],                        color='C1',   label='MPE (+6 dB; '                +f' GRMS={grms_mpe:.2f})')
+    ax1.loglog(p95_50[:, 0],     p95_50[:, 1],                     color='C2',   label='P95/50  (+10.9 dB; '         +f' GRMS={grms_p95_50:.2f})')
+    ax1.loglog(p95_50_oct[:, 0], p95_50_oct[:, 1],                 color='C4',   label='P95/50 $1/6^{th} Octave$'    +f' (GRMS={grms_p95_50_oct:.2f})')
+    ax1.loglog(smc_min_work_bound[:, 0], smc_min_work_bound[:, 1], color='C3',   label='ATP Test Levels '            +f' (GRMS={grms_atp:.2f})')
 
     ax1.loglog(smc_min_work[:, 0], smc_min_work[:, 1],
                color='k', linestyle='--',
@@ -606,7 +605,7 @@ def part2(dirname: Path, dat_filename: Path, basename: str, xlim) -> None:
     ax1.grid(which='both')
     ax1.set_xlim(xlim)
     ax1.legend(fontsize=fontsize)
-
+    ax1.set_ylim([1e-5, None])
     set_background_color(bgcolor, ax1, ax2)
 
     fig1.savefig(png_filename1)
