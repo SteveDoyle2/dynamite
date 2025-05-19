@@ -90,6 +90,9 @@ class TestGrms(unittest.TestCase):
         grms = psd_series.grms()
         assert np.allclose(grms, 9.27062562), grms  # 9.3
 
+def sine_sweep(time: np.ndarray, f0: float, f1: float) -> np.ndarray:
+    tmax = time.max()
+    return np.sin(2*np.pi*(f0*time + (f1 - f0)/(2*tmax)*time**2))
 
 class TestCore(unittest.TestCase):
     def test_time_response(self):
@@ -97,6 +100,17 @@ class TestCore(unittest.TestCase):
         time_response = 2 * np.sin(time)
         resp = TimeSeries(time, time_response, label='cat')
         resp.plot(y_units='g', ifig=1, ax=None, linestyle='-o', show=True)
+
+    def test_time_filter(self):
+        # time = np.arange(0, 1, 1/sampling_freq)
+        # signal = np.sin(2*np.pi*5*time) + 0.5*np.sin(2*np.pi*20*time)  # Sum of 5 Hz and 20 Hz sine waves
+        t = np.linspace(0., 10., num=10001)
+        f0 = 2.
+        f1 = 20.
+        y = sine_sweep(t, f0, f1)
+
+        time = TimeSeries(t, y, label='signal')
+        time.filter_lowpass(10., inplace=True)
 
     def test_main(self):
         #  [0, 1, 2, *3, 4, 5, 6]

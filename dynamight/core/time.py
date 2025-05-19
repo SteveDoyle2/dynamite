@@ -3,6 +3,8 @@ from typing import Optional # , Union
 from pathlib import PurePath, Path
 import numpy as np
 import scipy as sp
+import scipy
+from scipy.signal import butter, filtfilt, sosfiltfilt, sosfilt
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -149,6 +151,8 @@ class TimeSeries:
         self.time = time2
         return self
 
+    #--------------------------------------------
+    # loading
     @classmethod
     def load_from_csv_filename(cls, csv_filename: Path | str, delimiter: str=','):
         if isinstance(csv_filename, PurePath):
@@ -168,6 +172,76 @@ class TimeSeries:
         labels = [label.strip() for label in labels.tolist()]
         return TimeSeries(time, response, label=labels)
 
+    def filter_lowpass(self, cutoff_freq: float,
+                        filter_order: int=4,
+                        inplace: bool=True):
+        assert isinstance(cutoff_freq, float), cutoff_freq
+        out = self._filter(
+            freq1=cutoff_freq, filter_order=filter_order, inplace=inplace)
+        return out
+
+    def filter_highpass(self, cutoff_freq: float,
+                        filter_order: int = 4,
+                        inplace: bool = True):
+        assert isinstance(cutoff_freq, float), cutoff_freq
+        out = self._filter(
+            freq2=cutoff_freq, filter_order=filter_order, inplace=inplace)
+        return out
+
+    def _filter(self, freq1: Optional[float]=None,
+                freq2: Optional[float]=None,
+                filter_order: int=4,
+                # output = 'ba'
+                output: str='sos',
+                inplace: bool=True):
+        # sos = signal.ellip(13, 0.009, 80, 0.05, output='sos')
+        # response = scipy.signal.lfilter(sos, self.response, axis=-1, zi=None)
+        dt = self.dt
+        sampling_freq = 1 / dt
+        if isinstance(freq1, float) and isinstance(freq2, float):
+            normalized_cutoff = freq2 / (sampling_freq / 2)
+            out = butter(filter_order, normalized_cutoff,
+                         btype='bandpass', output=output,
+                         analog=False, fs=sampling_freq)
+        elif isinstance(freq1, float):
+            normalized_cutoff = freq1 / (sampling_freq / 2)
+            out = butter(filter_order, normalized_cutoff,
+                         btype='low', output=output, analog=False,
+                         fs=sampling_freq)
+        elif isinstance(freq2, float):
+            out = butter(filter_order, normalized_cutoff,
+                         btype='high', output=output, analog=False,
+                         fs=sampling_freq)
+        else:  # pragma: no cover
+            raise RuntimeError((freq1, freq2))
+
+        if output == 'ba':
+            b, a = out
+            # Apply filter using filtfilt for zero-phase filtering
+            filtered_response = filtfilt(b, a, self.response)
+            # w, h = signal.freqs(b, a)
+        elif output == 'sos':
+            sos = out
+            filtered_response = scipy.signal.sosfilt(sos, self.response)
+        elif output == 'zpk':
+            z, p, k = out
+        else:  # pragma: no cover
+            raise RuntimeError(output)
+        out = self._update_response(filtered_response, inplace=inplace)
+        return out
+
+    def _update_response(self, response: np.ndarray, inplace: bool):
+        if inplace:
+            self.response = response
+            obj = self
+        else:
+            obj = TimeSeries(self.time, response, label=self.labels)
+        return self
+
+    #----------------------------
+    # to_fft
+    # to_psd_welch
+    # to_srs
     def to_fft(self, sided: int=1, fft_type: str='real_imag') -> ft.FourierTransform:
         assert fft_type in {'mag_phase', 'real_imag'}, f'fft_type={fft_type}'
 
@@ -197,7 +271,6 @@ class TimeSeries:
         fft_response /= ntimes
         fft_response = fft_response.reshape(self.response.shape)
 
-
         if sided == 1:
             assert len(frequency) == ntimes
             N = ntimes
@@ -224,6 +297,7 @@ class TimeSeries:
             frequency, fft_response, label=self.label, fft_type=fft_type,
             sided=sided, is_onesided_center=is_onesided_center)
         return fft
+
     def to_time_windowed_data(self, iresponse: int=0,
                               window_size_sec: float= 1.0,
                               overlap: float=0.5) -> np.ndarray:
@@ -359,6 +433,8 @@ class TimeSeries:
         )
         return shock
 
+    #------------------------------------------------
+    # plotting
     def plot(self, y_units: str='g', ifig: int=1,
              ax: Optional[plt.Axes]=None,
              xlim: Optional[Limit]=None,
