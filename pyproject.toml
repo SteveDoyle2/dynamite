@@ -17,7 +17,7 @@ authors = [
 #readme = "various tools"   # it's looking for a file
 #readme = "README.md"           # doesn't work
 
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 
 #keywords = ["packaging", "dependency", "infer", "pyproject.toml"]
 #keywords = ["nastran"]
@@ -29,10 +29,8 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
@@ -77,8 +75,8 @@ gui = ['PySide6']
 #none = []
 #-------------------------------------------------------------------------------------------
 [project.scripts]
-#poetry = "infer_pyproject.cli:main"
-dynomite = "dynmomite.gui.gui:cmd_line"
+
+dynamite = "dynamite.gui.gui:cmd_line"
 
 #-------------------------------------------------------------------------------------------
 [project.urls]
@@ -122,8 +120,8 @@ include = ["dynamight*"]
 #include = ["pkg*"]
 
 exclude = [
-    'models/*',
-    'dynamight/converters/dev*',
+    'examples/*',
+    'references/*',
     'dynamight/converters/dev*',
 ]
 

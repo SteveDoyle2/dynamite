@@ -1,6 +1,7 @@
 """
 https://vibrationdata.wordpress.com/2014/04/02/python-signal-analysis-package-gui/
 """
+import getpass
 #import os
 import sys
 from functools import partial
@@ -8,6 +9,8 @@ from functools import partial
 
 import numpy as np
 
+import matplotlib
+#print(matplotlib.__version__)
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.backends.backend_qtagg import \
@@ -15,17 +18,33 @@ from matplotlib.backends.backend_qtagg import \
 from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.figure import Figure
 
-from qtpy.QtWidgets import (
-    QApplication, QMainWindow,
-    #QLabel, QTextEdit, QRadioButton, QComboBox, QTabBar,
-    QWidget, QVBoxLayout, # QGridLayout, QHBoxLayout,
-    QTabWidget, # QAction,
-    QMenuBar,
-    QStatusBar, # QMenu, QTreeView, QPushButton,
-    QDockWidget, # QLineEdit, QDoubleSpinBox
-)
-from qtpy import QtGui
-import qtpy.QtCore as QtCore
+if 1:
+    import PySide6
+    from PySide6.QtWidgets import (
+        QApplication, QMainWindow,
+        QLabel, QTextEdit, #QRadioButton,
+        QComboBox, #QTabBar,
+        QWidget, QVBoxLayout, QGridLayout, QHBoxLayout,
+        QTabWidget, # QAction,
+        QMenuBar,
+        QStatusBar, # QMenu, QTreeView, QPushButton,
+        QDockWidget, # QLineEdit, QDoubleSpinBox
+    )
+    from PySide6 import QtGui
+    import PySide6.QtCore as QtCore
+else:
+    from qtpy.QtWidgets import (
+        QApplication, QMainWindow,
+        #QLabel, QTextEdit, QRadioButton, QComboBox, QTabBar,
+        QWidget, QVBoxLayout, # QGridLayout, QHBoxLayout,
+        QTabWidget, # QAction,
+        QMenuBar,
+        QStatusBar, # QMenu, QTreeView, QPushButton,
+        QDockWidget, # QLineEdit, QDoubleSpinBox
+    )
+    from qtpy import QtGui
+    import qtpy.QtCore as QtCore
+
 from cpylog import SimpleLogger
 from cpylog.html_utils import str_to_html
 from pyNastran.gui.menus.menus import (
@@ -34,9 +53,11 @@ from pyNastran.gui.menus.menus import (
 )
 #from pyNastran.gui.menus.about.about import AboutWindow
 
+import dynamight
 from dynamight.gui.about_window import AboutWindow
-from pyNastran.gui.utils.qt.pydialog import PyDialog, QFloatEdit, set_combo_box_text
+from pyNastran.gui.utils.qt.pydialog import PyDialog, QFloatEdit
 from pyNastran.gui.utils.qt.dialogs import open_file_dialog
+from pyNastran.gui.utils.qt.qcombobox import set_combo_box_text
 
 from dynamight.gui.qactions import build_actions_dict, build_menu_bar
 from dynamight.gui.sidebar import Sidebar2
@@ -434,12 +455,20 @@ class MainWindow(QMainWindow):
         domains: time, psd
         """
         layout = QVBoxLayout(self)
-        static_fig = Figure(figsize=(5, 3))
-        static_canvas = FigureCanvas(static_fig)
+        widget.setLayout(layout)
+
+        fig = Figure(figsize=(5, 3))
+        static_canvas = FigureCanvas(fig)
+
         # Ideally one would use self.addToolBar here, but it is slightly
         # incompatible between PyQt6 and other bindings, so we just add the
         # toolbar as a plain widget instead.
-        layout.addWidget(NavigationToolbar(static_canvas, self))
+
+        if 0:
+            nav_bar = NavigationToolbar(static_canvas)
+        else:
+            nav_bar = NavigationToolbar(static_canvas, self)
+        layout.addWidget(nav_bar)
         layout.addWidget(static_canvas)
 
         ax = static_canvas.figure.subplots()
@@ -464,7 +493,6 @@ class MainWindow(QMainWindow):
 
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        widget.setLayout(layout)
         return ax
     #------------------------------------------------------------------------
     # Logging
@@ -633,9 +661,45 @@ def set_tab(tab: QWidget) -> None:
     tab.setFocus()
 
 
-if __name__ == '__main__':
+import getpass
+class Login(QGridLayout):
+    def __init__(self):
+        super().__init__()
+        method_label = QLabel('Method:')
+        method_pulldown = QComboBox()
+        method_pulldown.addItems(['csv', 'nominal'])
+        set_combo_box_text(method_pulldown, 'csv')
+
+        csv_label = QLabel('CSV File:')
+        csv_filename = QTextEdit()
+
+        user_label = QLabel('User:')
+        user_name = getpass.getuser()
+        user = QTextEdit(user_name)
+        #-------------------------
+        irow = 0
+        self.addWidget(method_label, irow, 0)
+        self.addWidget(method_pulldown, irow, 1)
+        irow += 1
+
+        self.addWidget(csv_label, irow, 1)
+        self.addWidget(csv_filename, irow, 2)
+        irow += 1
+
+        self.addWidget(user_label, irow, 1)
+        self.addWidget(user, irow, 2)
+        irow += 1
+
+
+def main():
+    import os
+    dirname = os.path.dirname(os.path.dirname(__file__))
+    sys.path.append(dirname)
+
     # 2. Create an instance of QApplication
     app = QApplication([])
+    box = Login()
+
 
     Window = MainWindow()
 
@@ -644,3 +708,7 @@ if __name__ == '__main__':
 
     # 5. Run your application's event loop
     sys.exit(app.exec())
+
+
+if __name__ == '__main__':
+    main()

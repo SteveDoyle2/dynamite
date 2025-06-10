@@ -103,7 +103,9 @@ class ResultsWindow(QWidget):
 
         self.tree_view = QTreeView(self)
         self.tree_view.setModel(self.model)
-        self.tree_view.setSelectionMode(self.tree_view.selectionMode().MultiSelection)
+
+        self.tree_view.setSelectionMode(QTreeView.MultiSelection)
+        #self.tree_view.setSelectionMode(self.tree_view.selectionMode().MultiSelection)
         #self.treeView.set_single(is_single)
         self.tree_view.expandAll()
 
@@ -188,4 +190,3 @@ class ResultsWindow(QWidget):
         #        ('B', []),
         #    ]
         #    self.update_data(data)
-
