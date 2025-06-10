@@ -69,7 +69,7 @@ class VibrationResponseSpectra:
         if ax is None:
             fig = plt.figure(ifig)
             ax = fig.gca()
-        ax.set_title('PSD')
+        ax.set_title('VRS PSD')
         ax.set_xlabel('Frequency (Hz)')
         assert self.octave_spacing == 0, self.octave_spacing
         ax.set_ylabel(f'VRS (${y_units}^2$/Hz)')

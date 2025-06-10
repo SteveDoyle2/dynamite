@@ -50,7 +50,7 @@ def psd_to_onesided(frequency: np.ndarray, response: np.ndarray,
         # center freq is 2
         ifreq = nfreq // 2 + 1
         response = k * response[:ifreq, :]
-        response[-1, :] /= k  #  don't adjust the Nyquist frequency
+        response[-1, :] /= k  # don't adjust the Nyquist frequency
     else:
         # even
         #[0, 1, 2, 3]
@@ -60,7 +60,7 @@ def psd_to_onesided(frequency: np.ndarray, response: np.ndarray,
 
     frequency2 = frequency[:ifreq]
     assert len(frequency2) == ifreq, frequency2.shape
-    response[0, :] /= k  #  don't adjust the 0 frequency
+    response[0, :] /= k  # don't adjust the 0 frequency
     return frequency2, response, is_onesided_center
 
 def psd_to_twosided(frequency: np.ndarray, response: np.ndarray,
@@ -81,7 +81,7 @@ def psd_to_twosided(frequency: np.ndarray, response: np.ndarray,
         # center freq is 2
         nfreq = len(frequency) * 2 - 1
         ifreq = nfreq // 2 + 1
-        response2[-1, :] *= k  #  don't adjust the Nyquist frequency
+        response2[-1, :] *= k  # don't adjust the Nyquist frequency
     else:
         # even:
         #[0, 1, 2, 3]
@@ -310,7 +310,7 @@ def Qdamping_to_Qdamping(Q: Optional[float],
         Q = 1 / (2 * damping)
     else:
         assert Q is not None, (damping, Q)
-        damping= 1 / (2 * Q)
+        damping = 1 / (2 * Q)
     return Q, damping
 
 def mck_to_omega_damping(m: float, c: float, k: float) -> tuple[float, float]:
@@ -329,7 +329,7 @@ def mck_to_omega_damping(m: float, c: float, k: float) -> tuple[float, float]:
     """
     omegan = np.sqrt(k / m)
     c_crit = 2 * m * omegan
-    damping = c / c_crit  #  c/(2*sqrt(m*k))
+    damping = c / c_crit  # c/(2*sqrt(m*k))
     return omegan, damping
 
 def equivalent_spring_dampers_in_parallel(ks: list[float]=None,
