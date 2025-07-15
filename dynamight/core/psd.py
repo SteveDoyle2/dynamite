@@ -389,7 +389,7 @@ class PowerSpectralDensity:
 
 def get_grms(frequency: np.ndarray,
              response: np.ndarray) -> np.ndarray:
-    """
+    r"""
     Calculates GRMS from a PSD
 
     Parameters
