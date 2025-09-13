@@ -1,3 +1,12 @@
+"""
+sonic fatigue: https://apps.dtic.mil/sti/pdfs/ADB004600.pdf
+
+per Shaw (7,9) and Smith (8)
+7: Shaw https://apps.dtic.mil/sti/pdfs/ADA377359.pdf
+
+Plenovich: https://ntrs.nasa.gov/api/citations/19980008833/downloads/19980008833.pdf
+FPL = SPL + 20*log10(2.9e-9 psi/qinf)
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 from pyNastran.utils.atmosphere import (
@@ -171,9 +180,9 @@ plot3_mode2 = strarray("""0.006355932203389841, -7.001394700139468
 
 
 def fstar_to_freq(fstar: np.ndarray,
-                  U: float, L: float) -> np.ndarray:
+                  velocity: float, length: float) -> np.ndarray:
     # fstar = num/denom
-    freq = fstar * U / L
+    freq = fstar * velocity / length
     return freq
 
 
@@ -187,49 +196,47 @@ def get_fstar(nmode: int,
     return fstar
 
 
-def get_log_pn_max(mach: float, LD: float):
+def get_log_pn_max(mach: float, length_depth: float):
     # 4.3.2-2
     # it's gotta be 9 because ax2 is right
     # log_p2_max_q = 8.0 - 3.3 * LD + 20. * np.log10(-mach**2 + 2*mach - 0.7)
-    log_p2_max_q = 9.0 - 3.3 * LD + 20. * np.log10(-mach**2 + 2*mach - 0.7)
+    log_p2_max_q = 9.0 - 3.3 * length_depth + 20. * np.log10(-mach**2 + 2*mach - 0.7)
 
     # 4.3.2-3
-    log_p1_max_q = log_p2_max_q - 2 * LD**2 + 26*LD - 86
+    log_p1_max_q = log_p2_max_q - 2 * length_depth**2 + 26*length_depth - 86
 
     # 4.3.2-4
-    if LD < 4.5:
+    if length_depth < 4.5:
         log_p3_max_q = log_p2_max_q - 11.0
     else:
         log_p3_max_q = log_p2_max_q
     return log_p1_max_q, log_p2_max_q, log_p3_max_q
 
 
-def make_strouhal_plot():
+def make_strouhal_plot(fig_id: int, length_depth: float=4.0):
     # stx = f*L/U
     stx = np.logspace(0.01, 100., num=101)
     LD = 4.
     L = 20.
     Ukeas = 200.  # KEAS
     Ufts = convert_velocity(Ukeas, 'knots', 'ft/s')
-    D = L / LD
+    # D = L / LD
 
     freq = stx/L*Ufts
-
-    fig4 = plt.figure(4)
-    ax4 = fig4.gca()
-    ax4.set_ylim([-40, 10])
-    ax4.grid(True)
-    ax4.set_ylabel('20 log$(p/q)$')
-    ax4.set_xlabel('Strouhal Number, St=$f L/D$')
-    fig4.suptitle('4.3.2-5: Broadband Cavity Noise Spectrum Shape')
 
     asos_fts = atm_speed_of_sound(0., velocity_units='ft/s')
     mach = Ufts / asos_fts
     log_p1_max_qs, log_p2_max_qs, log_p3_max_qs = get_log_pn_max(mach, LD)
-    xoL = np.linspace(0.01, 1., num=101)
-    p_broadband = get_broadband_pressure(xoL, log_p2_max_qs, LD=LD)
+    xol = np.linspace(0.01, 1., num=101)
+    p_broadband = get_broadband_pressure(xol, log_p2_max_qs, length_depth=length_depth)
 
-    ax4.plot(stx, p_broadband)
+    fig, ax = get_fig_ax(fig_id)
+    ax.set_ylim([-40, 10])
+    ax.grid(True)
+    ax.set_ylabel('20 log$(p/q)$')
+    ax.set_xlabel('Strouhal Number, St=$f L/D$')
+    fig.suptitle('4.3.2-5: Broadband Cavity Noise Spectrum Shape')
+    ax.plot(stx, p_broadband)
     #----------------------------------------------------
 
     # fig5 = plt.figure(5)
@@ -240,9 +247,10 @@ def make_strouhal_plot():
     # ax5.grid(True)
     # plt.show()
 
-def get_fig_ax(fig: plt.Figure | int | plt.Axes):
+
+def get_fig_ax(fig: plt.Figure | int | plt.Axes) -> [plt.Figure, plt.Axes]:
     if isinstance(fig, int):
-        figure = plt.Figure(fig)
+        figure = plt.figure(fig)
         ax = figure.gca()
     elif isinstance(fig, plt.Figure):
         figure = fig
@@ -250,12 +258,16 @@ def get_fig_ax(fig: plt.Figure | int | plt.Axes):
     elif isinstance(fig, plt.Axes):
         ax = fig
         figure = ax.gcf()
+    else:
+        raise TypeError(fig)
     return figure, ax
 
-def vel_plot(fig: plt.Figure | int, alts: np.ndarray, rhos: np.ndarray,
+
+def vel_plot(fig_id: plt.Figure | int,
+             alts: np.ndarray, rhos: np.ndarray,
              vels: np.ndarray,
              use_keas: bool=True):
-    fig, ax = get_fig_ax(fig)
+    fig, ax = get_fig_ax(fig_id)
     alts2 = alts / 1000
     ax_spl = ax
     plot_q = False
@@ -310,10 +322,11 @@ def vel_plot(fig: plt.Figure | int, alts: np.ndarray, rhos: np.ndarray,
                  '\nDetermining Reference "q" Decibel Level')
 
 
-def plenovich_spl_plot(ax: plt.Axes,
+def plenovich_spl_plot(fig_id: int,
                        alts: np.ndarray, rhos: np.ndarray,
                        vels: np.ndarray, fpl: float=0.0):
     """Plenovich"""
+    fig, ax = get_fig_ax(fig_id)
     plot_q = False
     ax_spl = ax
     if plot_q:
@@ -346,74 +359,83 @@ def plenovich_spl_plot(ax: plt.Axes,
     fig.suptitle(f'SPL vs. Altitude (FPL={fpl} dB)')
 
 
-def _cavity_pressure_cos_alpha(xoL: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _cavity_pressure_cos_alpha(xol: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     alpha1 = 3.5
     alpha2 = 6.3
     alpha3 = 10.0
-    cos1_axL = np.abs(np.cos(alpha1 * xoL))
-    cos2_axL = np.abs(np.cos(alpha2 * xoL))
-    cos3_axL = np.abs(np.cos(alpha3 * xoL))
-    return cos1_axL, cos2_axL, cos3_axL
+    cos1_axl = np.abs(np.cos(alpha1 * xol))
+    cos2_axl = np.abs(np.cos(alpha2 * xol))
+    cos3_axl = np.abs(np.cos(alpha3 * xol))
+    return cos1_axl, cos2_axl, cos3_axl
 
 
 def get_cavity_pressure(log_p1_max_q: float, log_p2_max_q: float, log_p3_max_q: float,
-                        xoL: np.ndarray, LD: float=4.0):
+                        xol: np.ndarray, length_depth: float=4.0):
     # 4.3.2-5
-    cos1_axL, cos2_axL, cos3_axL = _cavity_pressure_cos_alpha(xoL)
+    cos1_axl, cos2_axl, cos3_axl = _cavity_pressure_cos_alpha(xol)
 
-    LD33 = (0.33 * LD - 0.60)
-    omxl = 1 - xoL
-    assert len(omxl) == cos1_axL.size
+    LD33 = (0.33 * length_depth - 0.60)
+    omxl = 1 - xol
+    assert len(omxl) == cos1_axl.size
     assert isinstance(log_p1_max_q, float)
-    # log_p1_q_xoL = log_p1_max_q - 10 * (1.0 + LD33 * (1 - xoL) - cos1_axL)
-    # log_p2_q_xoL = log_p2_max_q - 10 * (1.0 + LD33 * (1 - xoL) - cos2_axL)
-    # log_p3_q_xoL = log_p3_max_q - 10 * (1.0 + LD33 * (1 - xoL) - cos3_axL)
-    log_p1_q_xoL = log_p1_max_q - 10 * (1.72 - 0.7 * xoL - cos1_axL)
-    log_p2_q_xoL = log_p2_max_q - 10 * (1.72 - 0.7 * xoL - cos2_axL)
-    log_p3_q_xoL = log_p3_max_q - 10 * (1.72 - 0.7 * xoL - cos3_axL)
+    # log_p1_q_xol = log_p1_max_q - 10 * (1.0 + LD33 * (1 - xoL) - cos1_axL)
+    # log_p2_q_xol = log_p2_max_q - 10 * (1.0 + LD33 * (1 - xoL) - cos2_axL)
+    # log_p3_q_xol = log_p3_max_q - 10 * (1.0 + LD33 * (1 - xoL) - cos3_axL)
+    log_p1_q_xol = log_p1_max_q - 10 * (1.72 - 0.7 * xol - cos1_axl)
+    log_p2_q_xol = log_p2_max_q - 10 * (1.72 - 0.7 * xol - cos2_axl)
+    log_p3_q_xol = log_p3_max_q - 10 * (1.72 - 0.7 * xol - cos3_axl)
 
-    log_p2_q_xoL_min = log_p2_max_q - 10 * (1.72 - 0.7 * xoL)
-    log_p2_q_xoL_max = log_p2_max_q - 10 * (1.72 - 0.7 * xoL - 1)
+    log_p2_q_xol_min = log_p2_max_q - 10 * (1.72 - 0.7 * xol)
+    log_p2_q_xol_max = log_p2_max_q - 10 * (1.72 - 0.7 * xol - 1)
 
-    return log_p1_q_xoL, log_p2_q_xoL, log_p3_q_xoL, log_p2_q_xoL_min, log_p2_q_xoL_max
+    return log_p1_q_xol, log_p2_q_xol, log_p3_q_xol, log_p2_q_xol_min, log_p2_q_xol_max
 
 
-def plot_cavity_pressure(ax11: plt.Axes,
-                         xoL: np.ndarray,
-                         log_p1_q_xoL: np.ndarray,
-                         log_p2_q_xoL: np.ndarray,
-                         log_p3_q_xoL: np.ndarray,
-                         log_p2_q_xoL_min: np.ndarray,
-                         log_p2_q_xoL_max: np.ndarray,
+def plot_cavity_pressure(fig_id: int,
+                         xol: np.ndarray,
+                         log_p1_q_xol: np.ndarray,
+                         log_p2_q_xol: np.ndarray,
+                         log_p3_q_xol: np.ndarray,
+                         log_p2_q_xol_min: np.ndarray,
+                         log_p2_q_xol_max: np.ndarray,
                          ) -> None:
+    fig, ax = get_fig_ax(fig_id)
+
+    ax.grid(True)
+    ax.set_xlabel('x/L')
+    ax.set_ylabel('20 log$(p_N/q)$')
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([-50.0, -20.0])
+    ax.set_yticks(np.arange(-50, -20. + 1, 5.0))
+
     # d05 = (log_p1_q_xoL - 0.5)
     # d10 = (log_p1_q_xoL - 1.0)
     # val05 = np.where(d05 == d05.min())[0]
     # val10 = np.where(d10 == d10.min())[0]
 
-    d05 = (xoL - 0.5)
-    d10 = (xoL - 1.0)
+    d05 = (xol - 0.5)
+    d10 = (xol - 1.0)
     i05 = np.where(d05 == d05.min())[0][0]
     i10 = np.where(d10 == d10.min())[0][0]
 
-    ax11.plot(xoL, log_p1_q_xoL, label=f'Mode 1 (x=0.5: {log_p1_q_xoL[i05]:3f}; x=1.0: {log_p1_q_xoL[i10]:3f})', color='C0')
-    ax11.plot(xoL, log_p2_q_xoL, label=f'Mode 2 (x=0.5: {log_p2_q_xoL[i05]:3f}; x=1.0: {log_p2_q_xoL[i10]:3f})', color='C1')
-    ax11.plot(xoL, log_p3_q_xoL, label=f'Mode 3 (x=0.5: {log_p3_q_xoL[i05]:3f}; x=1.0: {log_p3_q_xoL[i10]:3f})', color='C2')
-    ax11.plot(xoL, log_p2_q_xoL_min, linestyle='--', color='C1')
-    ax11.plot(xoL, log_p2_q_xoL_max, linestyle='--', color='C1')
-    ax11.legend()
+    ax.plot(xol, log_p1_q_xol, label=f'Mode 1 (x=0.5: {log_p1_q_xol[i05]:3f}; x=1.0: {log_p1_q_xol[i10]:3f})', color='C0')
+    ax.plot(xol, log_p2_q_xol, label=f'Mode 2 (x=0.5: {log_p2_q_xol[i05]:3f}; x=1.0: {log_p2_q_xol[i10]:3f})', color='C1')
+    ax.plot(xol, log_p3_q_xol, label=f'Mode 3 (x=0.5: {log_p3_q_xol[i05]:3f}; x=1.0: {log_p3_q_xol[i10]:3f})', color='C2')
+    ax.plot(xol, log_p2_q_xol_min, linestyle='--', color='C1')
+    ax.plot(xol, log_p2_q_xol_max, linestyle='--', color='C1')
+    ax.legend()
 
 
-def get_broadband_pressure(xoL: np.ndarray,
-                           log_p2_max_q: float, LD: float=4.0):
+def get_broadband_pressure(xol: np.ndarray,
+                           log_p2_max_q: float, length_depth: float=4.0):
     """4.3.2-6"""
     # log_p2_max_q is the right term (mabye wrong value) can't be x/L
-    log_pb_q = log_p2_max_q + 3.3*LD - 28 + 3*(1-LD)*(1-xoL)
+    log_pb_q = log_p2_max_q + 3.3*length_depth - 28 + 3*(1-length_depth)*(1-xol)
     return log_pb_q
 
 
 def sonic_fatigue(vels: np.ndarray,
-                  L: float, LD: float, fpl: float=0.0):
+                  length: float, length_depth: float, fpl: float=0.0):
     """
     sonic fatigue: https://apps.dtic.mil/sti/pdfs/ADB004600.pdf
 
@@ -437,10 +459,6 @@ def sonic_fatigue(vels: np.ndarray,
             2: fstar2s,
             3: fstar3s,
         }
-        fig2 = plt.figure(2)
-        fig3 = plt.figure(3)
-        ax2 = fig2.gca()
-        ax3 = fig3.gca()
 
         alts = np.linspace(0., 65000+1, num=660)
         alts2 = alts / -1000
@@ -449,62 +467,35 @@ def sonic_fatigue(vels: np.ndarray,
             for alt in alts])
         # ft/s
         # vels = [225.]
-        plenovich_spl_plot(ax3, alts, rhos, vels, fpl=fpl)
+        plenovich_spl_plot(1, alts, rhos, vels, fpl=fpl)
 
         log_p1_max_qs, log_p2_max_qs, log_p3_max_qs = get_log_pn_max(
-            machs, LD)
+            machs, length_depth)
 
         asos_fts = atm_speed_of_sound(0., velocity_units='ft/s')
         # U = convert_velocity(230., 'knots', 'ft/s')
         U = machs * asos_fts
         freq_dict = {
-            1: fstar_to_freq(fstar1s, U, L),
-            2: fstar_to_freq(fstar2s, U, L),
-            3: fstar_to_freq(fstar3s, U, L),
+            1: fstar_to_freq(fstar1s, U, length),
+            2: fstar_to_freq(fstar2s, U, length),
+            3: fstar_to_freq(fstar3s, U, length),
         }
 
-        if 0:
-            fig1 = plt.figure(1)
-            plot_normalized_frequency(
-                fig1,
-                machs, fstars_dict)
-        else:
-            fig100 = plt.figure(1)
-            plot_frequency(
-                fig100,
-                freq_dict,
-                machs, uvelocity=U)
+        plot_normalized_frequency(
+            2, fstars_dict, machs)
+        plot_frequency(
+            3, freq_dict, machs, uvelocity=U)
 
-        # make_strouhal_plot()
+        make_strouhal_plot(3, length_depth=length_depth)
         # return
 
-        max1 = log_p1_max_qs.max()
-        max2 = log_p2_max_qs.max()
-        max3 = log_p3_max_qs.max()
-        imax1 = np.where(log_p1_max_qs == max1)[0]
-        imax2 = np.where(log_p2_max_qs == max2)[0]
-        imax3 = np.where(log_p3_max_qs == max3)[0]
-        ax2.plot(machs, log_p1_max_qs, label=f'Mode 1: {max1:g}', color='C0')
-        ax2.plot(machs, log_p2_max_qs, label=f'Mode 2: {max2:g}', color='C1')
-        ax2.plot(machs, log_p3_max_qs, label=f'Mode 3: {max3:g}', color='C2')
-        ax2.plot(machs[imax1], log_p1_max_qs[imax1], marker='o', color='C0')
-        ax2.plot(machs[imax2], log_p2_max_qs[imax2], marker='o', color='C1')
-        ax2.plot(machs[imax3], log_p3_max_qs[imax3], marker='o', color='C2')
-        ax2.plot(plot2_data_mode1[:, 0], plot2_data_mode1[:, 1], linestyle='--', marker='o', linewidth=2, color='k')
-        ax2.plot(plot2_data_mode2[:, 0], plot2_data_mode2[:, 1], linestyle='--', marker='o', linewidth=2, color='k')
-        ax2.plot(plot2_data_mode3[:, 0], plot2_data_mode3[:, 1], linestyle='--', marker='o', linewidth=2, color='k')
-        ax2.legend()
-        ax2.set_xlabel('Mach')
-        ax2.set_ylabel('$20$ log$(p_{N,max}/q)$')
-        ax2.set_xlim([0.6, 1.3])
-        yticks = np.arange(-36, -12. + 1, 4.0)
-        ax2.set_yticks(yticks)
-        ax2.set_ylim([-36., -12.])
-
-        ax2.grid(True)
+        plot_peak_variation_with_mach(
+            5,
+            machs,
+            log_p1_max_qs, log_p2_max_qs, log_p3_max_qs,
+            length_depth=length_depth,
+        )
         # plt.show()
-        fig2.suptitle(f'Seems good. 4.3.2-2 Variation of Modal Peak Amplification\n'
-                      f' with Mach Number for First 3 Modes (L/D={LD}')
 
     #================
     # mach = np.linspace(0.6, 1.3+dmach, num=51)
@@ -512,111 +503,146 @@ def sonic_fatigue(vels: np.ndarray,
     # fstar2 = get_fstar(2, machi, gamma=gamma)
     # fstar3 = get_fstar(3, machi, gamma=gamma)
     log_p1_max_q, log_p2_max_q, log_p3_max_q = get_log_pn_max(
-        machi, LD)
+        machi, length_depth)
 
-    xoL = np.linspace(0., 1., num=10001)
-
-    #--------------------
-    fig11 = plt.figure(11)
-    fig12 = plt.figure(12)
-    fig14 = plt.figure(14)
-    ax11 = fig11.gca()
-    ax12 = fig12.gca()
-
-    ax11.grid(True)
-    ax11.set_xlabel('x/L3')
-    ax11.set_ylabel('20 log$(p_N/q)$')
-    ax11.set_xlim([0.0, 1.0])
-    ax11.set_ylim([-50.0, -20.0])
-    ax11.set_yticks(np.arange(-50, -20. + 1, 5.0))
-
-    ax12.grid(True)
-    ax12.set_xlabel('x/L')
-    ax12.set_ylabel('20 log$(p_N/q) - $20 log$(p_{N,max}/q)$')
-    ax12.set_xlim([0.0, 1.0])
-    xticks = np.arange(0.0, 1.1, 0.1)
-    yticks = np.arange(-20, 2, 2)
-    ax12.set_xticks(xticks)
-    ax12.set_yticks(yticks)
-    fig12.suptitle('4.3.2-3 Modal Pressre Distribution Along\n'
-                   f'Cavity Length; L/D={LD}')
-
-    if 1:
-        fig15 = plt.figure(15)
-        ax15 = fig15.gca()
-        ax15.grid(True)
-        ax15.set_xlabel('x/L')
-        ax15.set_ylabel('SPL')
-        ax15.set_xlim([0.0, 1.0])
-    # ax14.set_ylim([-25., -15.])
-    vel_plot(16, alts, rhos, vels, use_keas=True)
+    xol = np.linspace(0., 1., num=10001)
 
     #--------------------
-    # fig10 = plt.figure(10)
-    # cos1_axL, cos2_axL, cos3_axL = _cavity_pressure_cos_alpha(xoL)
-    # plot_cos_alpha(fig10, xoL, cos1_axL, cos2_axL, cos3_axL,)
+    # if 1:
+    #     fig15 = plt.figure(15)
+    #     ax15 = fig15.gca()
+    #     ax15.grid(True)
+    #     ax15.set_xlabel('x/L')
+    #     ax15.set_ylabel('SPL')
+    #     ax15.set_xlim([0.0, 1.0])
+
+    #--------------------
+    cos1_axl, cos2_axl, cos3_axl = _cavity_pressure_cos_alpha(xol)
+    plot_cos_alpha(10, xol, cos1_axl, cos2_axl, cos3_axl)
 
     log_p1_q_xoL, log_p2_q_xoL, log_p3_q_xoL, log_p2_q_xoL_min, log_p2_q_xoL_max = get_cavity_pressure(
         log_p1_max_q, log_p2_max_q, log_p3_max_q,
-        xoL, LD=LD)
+        xol, length_depth=length_depth)
     plot_cavity_pressure(
-        ax11,
-        xoL,
+        11,
+        xol,
         log_p1_q_xoL, log_p2_q_xoL, log_p3_q_xoL,
         log_p2_q_xoL_min, log_p2_q_xoL_max)
 
     plot_normalized_modal_pressure(
-        fig12, xoL,
+        12, xol,
         log_p1_q_xoL, log_p1_max_q,
         log_p2_q_xoL, log_p2_max_q,
         log_p3_q_xoL, log_p3_max_q,
-        log_p2_q_xoL_min, log_p2_q_xoL_max)
+        log_p2_q_xoL_min, log_p2_q_xoL_max,
+        length_depth=length_depth,
+    )
 
-    for xoli in [0.5, 1.0]:
-        xoLs = np.array([xoli, xoli])
-        log_p1_q_xoL_, log_p2_q_xoL_, log_p3_q_xoL_, log_p2_q_xoL_min_, log_p2_q_xoL_max_ = get_cavity_pressure(
-            log_p1_max_q, log_p2_max_q, log_p3_max_q,
-            xoLs, LD=LD)
-        delta = log_p2_q_xoL_min_ - log_p2_max_q
-        ax12.scatter(xoLs, delta, marker='o', color='C3', label=f'x/L={xoli:.1f}, y={delta.max():.2f}')
+    log_pb_q = get_broadband_pressure(
+        xol, log_p2_max_q, length_depth=length_depth)
 
-    ax12.plot(plot3_mode2[:, 0], plot3_mode2[:, 1], linestyle='--', color='k')  # marker='o',
-    ax12.set_ylim([-18, 0.])
-    ax12.legend()
+    plot_broadband_pressure(
+        13, xol, log_pb_q, log_p2_max_q,
+        length_depth=length_depth)
 
-    log_pb_q = get_broadband_pressure(xoL, log_p2_max_q, LD=LD)
-
-    fig13 = plt.figure(13)
-    plot_broadband_pressure(fig13, xoL, log_pb_q, log_p2_max_q, LD=LD)
+    vel_plot(16, alts, rhos, vels, use_keas=True)
 
     plt.show()
-    U = 1.
-    L = 1.
-    freq = L / U * fstar1
+    # U = 1.
+    # L = 1.
+    # freq = L / U * fstar1
 
 
-def plot_normalized_modal_pressure(fig: plt.Figure,
-                                   xoL: np.ndarray,
-                                   log_p1_q_xoL: np.ndarray, log_p1_max_q: float,
-                                   log_p2_q_xoL: np.ndarray, log_p2_max_q: float,
-                                   log_p3_q_xoL: np.ndarray, log_p3_max_q: float,
-                                   log_p2_q_xoL_min: np.ndarray,
-                                   log_p2_q_xoL_max: np.ndarray,) -> None:
+def plot_peak_variation_with_mach(fig_id: int,
+                                  machs,
+                                  log_p1_max_qs, log_p2_max_qs, log_p3_max_qs,
+                                  length_depth: float=4.0):
+    fig, ax = get_fig_ax(fig_id)
+
+    max1 = log_p1_max_qs.max()
+    max2 = log_p2_max_qs.max()
+    max3 = log_p3_max_qs.max()
+    imax1 = np.where(log_p1_max_qs == max1)[0]
+    imax2 = np.where(log_p2_max_qs == max2)[0]
+    imax3 = np.where(log_p3_max_qs == max3)[0]
+    ax.plot(machs, log_p1_max_qs, label=f'Mode 1: {max1:g}', color='C0')
+    ax.plot(machs, log_p2_max_qs, label=f'Mode 2: {max2:g}', color='C1')
+    ax.plot(machs, log_p3_max_qs, label=f'Mode 3: {max3:g}', color='C2')
+    ax.plot(machs[imax1], log_p1_max_qs[imax1], marker='o', color='C0')
+    ax.plot(machs[imax2], log_p2_max_qs[imax2], marker='o', color='C1')
+    ax.plot(machs[imax3], log_p3_max_qs[imax3], marker='o', color='C2')
+    ax.plot(plot2_data_mode1[:, 0], plot2_data_mode1[:, 1], linestyle='--', marker='o', linewidth=2, color='k')
+    ax.plot(plot2_data_mode2[:, 0], plot2_data_mode2[:, 1], linestyle='--', marker='o', linewidth=2, color='k')
+    ax.plot(plot2_data_mode3[:, 0], plot2_data_mode3[:, 1], linestyle='--', marker='o', linewidth=2, color='k')
+    ax.legend()
+    ax.set_xlabel('Mach')
+    ax.set_ylabel('$20$ log$(p_{N,max}/q)$')
+    ax.set_xlim([0.6, 1.3])
+    yticks = np.arange(-36, -12. + 1, 4.0)
+    ax.set_yticks(yticks)
+    ax.set_ylim([-36., -12.])
+
+    ax.grid(True)
+    fig.suptitle(f'Seems good. 4.3.2-2 Variation of Modal Peak Amplification\n'
+                 f' with Mach Number for First 3 Modes (L/D={length_depth}')
+
+
+def plot_cavity_distribution(fig_id: int, length_depth: float = 4.0):
+    fig = plt.figure(fig_id)
     ax = fig.gca()
-    ax.plot(xoL, log_p1_q_xoL - log_p1_max_q, label='Mode 1', marker='o')
-    ax.plot(xoL, log_p2_q_xoL - log_p2_max_q, label='Mode 2')
-    ax.plot(xoL, log_p3_q_xoL - log_p3_max_q, label='Mode 3')
-    ax.plot(xoL, log_p2_q_xoL_min - log_p2_max_q, linestyle='--', color='C1')
-    ax.plot(xoL, log_p2_q_xoL_max - log_p2_max_q, linestyle='--', color='C1')
+    return fig, ax
 
 
-def plot_broadband_pressure(fig: plt.Figure,
-                            xoL: np.ndarray,
+def plot_normalized_modal_pressure(fig_id: int,
+                                   xol: np.ndarray,
+                                   log_p1_q_xol: np.ndarray, log_p1_max_q: float,
+                                   log_p2_q_xol: np.ndarray, log_p2_max_q: float,
+                                   log_p3_q_xol: np.ndarray, log_p3_max_q: float,
+                                   log_p2_q_xol_min: np.ndarray,
+                                   log_p2_q_xol_max: np.ndarray,
+                                   length_depth: float=4.0) -> tuple[plt.Figure, plt.Axes]:
+    """cavity_distribution"""
+    fig, ax = get_fig_ax(fig_id)
+    ax.grid(True)
+    ax.set_xlabel('x/L')
+    ax.set_ylabel('20 log$(p_N/q) - $20 log$(p_{N,max}/q)$')
+    ax.set_xlim([0.0, 1.0])
+    xticks = np.arange(0.0, 1.1, 0.1)
+    yticks = np.arange(-20, 2, 2)
+    ax.set_xticks(xticks)
+    ax.set_yticks(yticks)
+    fig.suptitle('4.3.2-3 Modal Pressre Distribution Along\n'
+                 f'Cavity Length; L/D={length_depth}')
+
+    ax.plot(xol, log_p1_q_xol - log_p1_max_q, label='Mode 1', marker='o')
+    ax.plot(xol, log_p2_q_xol - log_p2_max_q, label='Mode 2')
+    ax.plot(xol, log_p3_q_xol - log_p3_max_q, label='Mode 3')
+    ax.plot(xol, log_p2_q_xol_min - log_p2_max_q, linestyle='--', color='C1')
+    ax.plot(xol, log_p2_q_xol_max - log_p2_max_q, linestyle='--', color='C1')
+
+    # tag specific points on the curves
+    xpoints = [0.5, 1.0]
+    for xoli in xpoints:
+        xols = np.array([xoli, xoli])
+        log_p1_q_xoL_, log_p2_q_xoL_, log_p3_q_xoL_, log_p2_q_xoL_min_, log_p2_q_xoL_max_ = get_cavity_pressure(
+            log_p1_max_q, log_p2_max_q, log_p3_max_q,
+            xols, length_depth=length_depth)
+        delta = log_p2_q_xoL_min_ - log_p2_max_q
+        ax.scatter(xols, delta, marker='o', color='C3', label=f'x/L={xoli:.1f}, y={delta.max():.2f}')
+
+    ax.plot(plot3_mode2[:, 0], plot3_mode2[:, 1], linestyle='--', color='k')  # marker='o',
+    ax.set_ylim([-18, 0.])
+    ax.legend()
+    return fig, ax
+
+
+def plot_broadband_pressure(fig_id: int,
+                            xol: np.ndarray,
                             log_pb_q: np.ndarray,
                             log_p2_max_q: np.ndarray,
-                            LD: float=4.0) -> None:
-    ax = plt.gca()
-    ax.plot(xoL, log_pb_q - log_p2_max_q, label='broadband')
+                            length_depth: float=4.0) -> None:
+    fig, ax = get_fig_ax(fig_id)
+    ax.plot(xol, log_pb_q - log_p2_max_q, label='broadband')
     ax.legend()
     fig.suptitle(f'Wrong; p2_max={log_p2_max_q:g}')
 
@@ -626,12 +652,13 @@ def plot_broadband_pressure(fig: plt.Figure,
     ax.set_xlim([0.0, 1.0])
     ax.set_ylim([-25., -15.])
     fig.suptitle('4.3.2-4 Variation of Broadband Specturm Level\n'
-                   f'with Cavity Position; L/D={LD}')
+                 f'with Cavity Position; L/D={length_depth}')
 
 
-def plot_normalized_frequency(fig: plt.Figure | int,
-                              machs: np.ndarray, fstars_dict: dict[int, np.ndarray]):
-    fig, ax = get_fig_ax(fig)
+def plot_normalized_frequency(fig_id: plt.Figure | int,
+                              fstars_dict: dict[int, np.ndarray],
+                              machs: np.ndarray):
+    fig, ax = get_fig_ax(fig_id)
     for imode, fstars in fstars_dict.items():
         ax.plot(machs, fstars, label=f'Mode {imode} min={fstars.min():.3f} max={fstars.max():.3f}')
     ax.legend()
@@ -644,11 +671,12 @@ def plot_normalized_frequency(fig: plt.Figure | int,
                  'with Mach Number for First 3 Length Modes')
 
 
-def plot_frequency(fig: plt.Figure | int,
+def plot_frequency(fig_id: plt.Figure | int,
                    freq_dict: dict[int, np.ndarray],
                    machs: np.ndarray, uvelocity: float=0.0,
                    ) -> None:
-    fig, ax = get_fig_ax(fig)
+    assert len(freq_dict) > 0, freq_dict
+    fig, ax = get_fig_ax(fig_id)
     # f1* = U/L k
     # f1* L / U =
     ax.set_xlabel('Mach')
@@ -664,29 +692,29 @@ def plot_frequency(fig: plt.Figure | int,
     ax.grid(True)
 
 
-def plot_cos_alpha(fig: plt.Figure,
-                   xoL: np.ndarray,
-                   cos1_axL: np.ndarray,
-                   cos2_axL: np.ndarray,
-                   cos3_axL: np.ndarray,
+def plot_cos_alpha(fig_id: int,
+                   xol: np.ndarray,
+                   cos1_axl: np.ndarray,
+                   cos2_axl: np.ndarray,
+                   cos3_axl: np.ndarray,
                    ) -> None:
-    ax = fig.gca()
+    fig, ax = get_fig_ax(fig_id)
     ax.grid(True)
-    ax.set_ylabel('|cos$(alpha x/L)$|')
+    ax.set_ylabel(r'|cos$(\alpha x/L)$|')
     ax.set_xlabel('x/L')
     ax.set_xlim([0., 1.])
     # cos1_axL = np.abs(np.cos(alpha1 * xoL))
 
-    ax.plot(xoL, cos1_axL, label='Mode 1', color='C0')
-    ax.plot(xoL, cos2_axL, label='Mode 2', color='C1')
-    ax.plot(xoL, cos3_axL, label='Mode 3', color='C2')
+    ax.plot(xol, cos1_axl, label='Mode 1', color='C0')
+    ax.plot(xol, cos2_axl, label='Mode 2', color='C1')
+    ax.plot(xol, cos3_axl, label='Mode 3', color='C2')
 
 
 def main():
-    L = 20.
-    D = 5.
-    LD = L / D
-    fpl = -38
+    length = 20.
+    depth = 5.
+    length_depth = length / depth
+    fpl = -20
 
     vels = np.array([
         50., 60., 70., 80, 90, 100.,
@@ -698,7 +726,8 @@ def main():
         600, 700, 800, 900, 1000, 1100, 1200,
         1300, 1400, 1500, 1750, 2000, 2500, 3000.,
     ])
-    sonic_fatigue(vels=vels, L=L, LD=4.0, fpl=fpl)
+    sonic_fatigue(vels=vels, length=length,
+                  length_depth=length_depth, fpl=fpl)
 
 
 if __name__ == '__main__':
