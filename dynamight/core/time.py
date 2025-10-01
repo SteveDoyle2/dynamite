@@ -21,7 +21,7 @@ from dynamight.core.plot_utils import _set_grid, get_colors
 class TimeSeries:
     def __init__(self, time: np.ndarray,
                  time_response: np.ndarray,
-                 label: list[str]=None):
+                 label: list[str]=''):
         if time_response.ndim == 1:
             time_response = time_response.reshape(len(time_response), 1)
         if 'complex' in time_response.dtype.name:

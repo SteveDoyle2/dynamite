@@ -49,7 +49,7 @@ def signal_stats(a, b, num):
 
     ave = np.mean(b)
 
-    duration = a[num-1] - a[0];
+    duration = a[num-1] - a[0]
 
     dt = duration / float(num-1)
     sample_rate = 1/dt

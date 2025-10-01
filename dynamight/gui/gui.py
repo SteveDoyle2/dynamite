@@ -22,25 +22,25 @@ if 1:
     import PySide6
     from PySide6.QtWidgets import (
         QApplication, QMainWindow,
-        QLabel, QTextEdit, #QRadioButton,
-        QComboBox, #QTabBar,
+        QLabel, QTextEdit,  # QRadioButton,
+        QComboBox,  # QTabBar,
         QWidget, QVBoxLayout, QGridLayout, QHBoxLayout,
-        QTabWidget, # QAction,
+        QTabWidget,  # QAction,
         QMenuBar,
-        QStatusBar, # QMenu, QTreeView, QPushButton,
-        QDockWidget, # QLineEdit, QDoubleSpinBox
+        QStatusBar,  # QMenu, QTreeView, QPushButton,
+        QDockWidget,  # QLineEdit, QDoubleSpinBox
     )
     from PySide6 import QtGui
     import PySide6.QtCore as QtCore
 else:
     from qtpy.QtWidgets import (
         QApplication, QMainWindow,
-        #QLabel, QTextEdit, QRadioButton, QComboBox, QTabBar,
+        # QLabel, QTextEdit, QRadioButton, QComboBox, QTabBar,
         QWidget, QVBoxLayout, # QGridLayout, QHBoxLayout,
         QTabWidget, # QAction,
         QMenuBar,
-        QStatusBar, # QMenu, QTreeView, QPushButton,
-        QDockWidget, # QLineEdit, QDoubleSpinBox
+        QStatusBar,  # QMenu, QTreeView, QPushButton,
+        QDockWidget,  # QLineEdit, QDoubleSpinBox
     )
     from qtpy import QtGui
     import qtpy.QtCore as QtCore

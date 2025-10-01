@@ -587,7 +587,7 @@ def plot_peak_variation_with_mach(fig_id: int,
                  f' with Mach Number for First 3 Modes (L/D={length_depth}')
 
 
-def plot_cavity_distribution(fig_id: int, length_depth: float = 4.0):
+def plot_cavity_distribution(fig_id: int, length_depth: float=4.0):
     fig = plt.figure(fig_id)
     ax = fig.gca()
     return fig, ax
