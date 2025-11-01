@@ -4,7 +4,7 @@ import numpy as np
 import scipy as sp
 #import pandas as pd
 import matplotlib.pyplot as plt
-from dynamight.typing import Limit
+from dynamight.dyn_typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 import dynamight.core.time as dytime
 import dynamight.core.psd as dypsd # PowerSpectralDensity

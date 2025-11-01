@@ -11,6 +11,10 @@ from dynamight.core.time import TimeSeries
 from dynamight.core.psd import PowerSpectralDensity
 from dynamight.core.freq_utils import pseudo_response_spectra, plotting
 from dynamight.core.srs import octave_spacing, half_sine_pulse
+from dynamight.core.str_dynamics import (
+    reduce_line_nsm, reduce_area_nsm, reduce_n_minus1_sided_thickness,
+    get_area_quads_from_internal_external_points,
+    combine_area_based_mass_cg_inertia)
 
 
 class TestGrms(unittest.TestCase):
@@ -340,6 +344,137 @@ class TestCore(unittest.TestCase):
                  logplot=True,
                  saving='show_save',
                  title=title, )
+
+    def test_inertia_rectangle(self) -> None:
+        mass = 2
+        fig = plt.figure()
+        ax = fig.gca()
+        ax.set_aspect('equal')
+        ax.grid(True)
+
+        points = np.array([
+            [0., 0., 0.],
+            [0., 2., 0.],
+            [1., 2., 0.],
+            [1., 0., 0.],
+        ])
+        # https://byjus.com/jee/moment-of-inertia-of-rectangular-plate/
+        # nevermind that the formulas arr listed withi Ix
+        # the words above that are correct
+        a = 1.
+        b = 2.
+        Ix = 1 / 12 * mass * b ** 2
+        Iy = 1 / 12 * mass * a ** 2
+        Iz = 1 / 12 * mass * (a ** 2 + b ** 2)
+
+        points_closed = np.vstack([points, points[0, :],])
+        ax.plot(points_closed[:, 0], points_closed[:, 1], '-', label='raw')
+
+        area, cg_total, inertia = reduce_area_nsm(points, mass, ax, num_interp=40)
+        ixx, iyy, izz, ixy, ixz, iyz = inertia
+        cgx, cgy, cgz = cg_total
+        print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
+        print(ixx, iyy, izz, ixy, ixz, iyz)
+        print(Ix, Iy, Iz)
+        plt.legend()
+        plt.show()
+
+    def test_inertia_circle(self) -> None:
+        mass = 2
+        fig = plt.figure()
+        ax = fig.gca()
+        ax.set_aspect('equal')
+        ax.grid(True)
+
+        npoints = 360
+        radius = 2.14
+        Ix = mass * radius ** 2 / 2
+        Iy = mass * radius ** 2 / 2
+        Iz = mass * radius ** 2
+        points = np.zeros((npoints, 3))
+        theta = np.linspace(0, 2 * np.pi, npoints, endpoint=False)
+        x = radius * np.cos(theta)
+        y = radius * np.sin(theta)
+        points[:, 0] = x
+        points[:, 1] = y
+        thickness = 0.000001
+
+        points_closed = np.vstack([points, points[0, :],])
+        ax.plot(points_closed[:, 0], points_closed[:, 1], '-', label='raw')
+
+        cg_total, inertia = reduce_line_nsm(points, thickness, mass, ax, num_interp=40)
+        ixx, iyy, izz, ixy, ixz, iyz = inertia
+        cgx, cgy, cgz = cg_total
+        print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
+        print(ixx, iyy, izz, ixy, ixz, iyz)
+        print(Ix, Iy, Iz)
+        plt.legend()
+        plt.show()
+
+    def test_inertia_line(self) -> None:
+        mass = 2
+        fig = plt.figure()
+        ax = fig.gca()
+        ax.set_aspect('equal')
+        ax.grid(True)
+
+        points = np.array([
+            [0., 0., 0.],
+            [0., 2., 0.],
+            [0.1, 2., 0.],
+            [0.1, 0., 0.],
+        ])
+        # thickness = 0.1
+        length = 2.0
+        Ix = 1 / 12 * mass * length ** 2
+        Iy = 0.
+        Iz = 1 / 12 * mass * length ** 2
+
+        points_closed = np.vstack([points, points[0, :],])
+        ax.plot(points_closed[:, 0], points_closed[:, 1], '-', label='raw')
+
+        area, cg_total, inertia = reduce_area_nsm(points, mass, ax, num_interp=40)
+        ixx, iyy, izz, ixy, ixz, iyz = inertia
+        cgx, cgy, cgz = cg_total
+        print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
+        print(ixx, iyy, izz, ixy, ixz, iyz)
+        print(Ix, Iy, Iz)
+        plt.legend()
+        plt.show()
+
+    def test_inertia_rectangle3(self) -> None:
+        mass = 2
+        fig = plt.figure()
+        ax = fig.gca()
+        ax.set_aspect('equal')
+        ax.grid(True)
+
+        thickness = 0.2
+        points = np.array([
+            [0., 0., 0.],
+            [0., 1.25, 0.],
+            [1.2, 1.25, 0.],
+            [1.2, 0., 0.],
+        ])
+        a = 1.
+        b = 2.
+        # wrong
+        Ix = 1 / 12 * mass * b ** 2
+        Iy = 1 / 12 * mass * a ** 2
+        Iz = 1 / 12 * mass * (a ** 2 + b ** 2)
+        ax.plot(points[:, 0], points[:, 1], '-', label='raw')
+
+        points_internal, points_external, points_quads_list, area, cg_total, inertia = reduce_n_minus1_sided_thickness(
+            points, thickness, mass)
+
+        ixx, iyy, izz, ixy, ixz, iyz = inertia
+        cgx, cgy, cgz = cg_total
+        print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
+        print(ixx, iyy, izz, ixy, ixz, iyz)
+        print(Ix, Iy, Iz)
+        plt.legend()
+        plt.show()
+
 
 if __name__ == '__main__':
     unittest.main()

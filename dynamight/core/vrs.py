@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #import dynamight.core.time as dynatime
-from dynamight.typing import Limit
+from dynamight.dyn_typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 
 #from dynamight.core.time import TimeSeries
@@ -69,6 +69,9 @@ class VibrationResponseSpectra:
         if ax is None:
             fig = plt.figure(ifig)
             ax = fig.gca()
+        else:
+            fig = ax.get_figure()
+
         ax.set_title('VRS PSD')
         ax.set_xlabel('Frequency (Hz)')
         assert self.octave_spacing == 0, self.octave_spacing

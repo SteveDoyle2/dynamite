@@ -27,11 +27,12 @@ def _get_iedges(iedge: int, nedges: int) -> tuple[int, int, int]:
 def reduce_n_minus1_sided_thickness(
         points: np.ndarray,
         thickness: float,
-        total_mass: float) -> tuple[np.ndarray, np.ndarray, list[np.ndarray],
-                                    np.ndarray, np.ndarray]:
+        total_mass: float,
+        normal_sign: float=1.0) -> tuple[np.ndarray, np.ndarray, list[np.ndarray],
+                                         float, np.ndarray, np.ndarray]:
     npoints = len(points)
     nedges = npoints - 1
-    points2, points3 = _get_internal_line_points(points, -thickness)
+    points2, points3 = _get_internal_line_points(points, thickness)
     assert nedges == 3
 
     # reorg points2 to match the order of points
@@ -45,9 +46,33 @@ def reduce_n_minus1_sided_thickness(
     normal = np.array([1., 0., 0.])
     points_external = points.copy()
     points_internal = points2.copy()
-    points_internal[0, :] = points[0, :] + normal*thickness
-    points_internal[-1, :] = points[-1, :] - normal*thickness
+    points_internal[0, :] = points_external[0, :] + normal*thickness*normal_sign
+    points_internal[-1, :] = points_external[-1, :] - normal*thickness*normal_sign
+    points_quads, area, total_area = get_area_quads_from_internal_external_points(
+        points_internal, points_external, nedges)
 
+    narea = len(area)
+    scale = area / total_area
+    mass = scale * total_mass
+
+    # find the total cg of all sections
+    cg = np.zeros((narea, 3))
+    inertia = np.zeros((narea, 6))
+    for iarea, pointsi, areai, massi in zip(count(), points_quads, area, mass):
+        areai, cgi, inertiai = reduce_area_nsm(
+            pointsi, massi,
+            ax=None, num_interp=10, nround=6, add_data_to_plots=False)
+        cg[iarea, :] = cgi
+        inertia[iarea, :] = inertiai
+
+    cg_total, inertia_total = combine_area_based_mass_cg_inertia(
+        area, mass, cg, inertia)
+    return points_internal, points_external, points_quads, total_area, cg_total, inertia_total
+
+
+def get_area_quads_from_internal_external_points(points_internal: np.ndarray,
+                                                 points_external: np.ndarray,
+                                                 nedges: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     # get the points/area by section
     points_quads = []
     area = np.zeros(nedges)
@@ -62,25 +87,8 @@ def reduce_n_minus1_sided_thickness(
         areai = 0.5 * np.linalg.norm(np.cross(a, b))
         points_quads.append(pointsi)
         area[iedge] = areai
-
     total_area = area.sum()
-    narea = len(area)
-    scale = area / total_area
-    mass = scale * total_mass
-
-    # find the total cg of all sections
-    cg = np.zeros((narea, 3))
-    inertia = np.zeros((narea, 6))
-    for iarea, pointsi, areai, massi in zip(count(), points_quads, area, mass):
-        cgi, inertiai = reduce_area_nsm(
-            pointsi, massi,
-            ax=None, num_interp=10, nround=6, add_data_to_plots=False)
-        cg[iarea, :] = cgi
-        inertia[iarea, :] = inertiai
-
-    cg_total, inertia_total = combine_area_based_mass_cg_inertia(
-        area, mass, cg, inertia)
-    return points_internal, points_external, points_quads, cg_total, inertia_total
+    return points_quads, area, total_area
 
 
 def combine_area_based_mass_cg_inertia(
@@ -88,6 +96,9 @@ def combine_area_based_mass_cg_inertia(
         mass: np.ndarray,
         cg: np.ndarray,
         inertia: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    assert len(area) == len(mass)
+    assert len(area) == len(cg)
+    assert len(area) == len(inertia)
     total_mass = mass.sum()
     #cg_mass = (cg * mass[:, np.newaxis]) / total_mass
     cg_total = (cg * mass[:, np.newaxis]).sum(axis=0) / total_mass
@@ -244,12 +255,11 @@ def reduce_area_nsm(points: np.ndarray,
                     ax: plt.Axes,
                     num_interp: int=40,
                     nround: int=6,
-                    add_data_to_plots: bool=True) -> tuple[np.ndarray, np.ndarray]:
+                    add_data_to_plots: bool=True) -> tuple[float, np.ndarray, np.ndarray]:
     """TODO: handle general shapes"""
     dab = 2.0 / num_interp
     t0 = -1 + dab/2
     t1 = 1 - dab/2
-    #print(t0, t1, dab)
 
     p1 = points[0, :][np.newaxis, :]
     p2 = points[1, :][np.newaxis, :]
@@ -326,12 +336,13 @@ def reduce_area_nsm(points: np.ndarray,
     cg_total = cg_total.flatten()
     if add_data_to_plots:
         fig = ax.get_figure()
-        ax.plot(cg_total[:, 0], cg_total[:, 1], 'o', label='cg')
+        ax.plot(cg_total[0], cg_total[1], 'o', label='cg')
         fig.suptitle(f'area smear; mass={mass:g} cg=[{cg_total[0]:g}, {cg_total[1]:g}, {cg_total[2]:g}]\n'
                      f'inertia=[{ixx:g}, {ixy:g}, {iyy:g}, {ixz:g}, {iyz:g}, {izz:g}]')
         ax.set_xlabel('x')
         ax.set_ylabel('y')
-    return cg_total, inertia
+    assert len(cg_total) == 3, cg_total
+    return area_total, cg_total, inertia
 
 
 def get_inertia(dmass: np.ndarray,
@@ -370,119 +381,6 @@ def get_nquad(ab: np.ndarray) -> np.ndarray:
     N4 = (1 - ab[:, 0]) * (1 + ab[:, 1]) / 4
     Ns = np.column_stack([N1, N2, N3, N4])
     return Ns
-
-
-def main() -> None:
-    mass = 2
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.set_aspect('equal')
-    ax.grid(True)
-    is_rectangle = False
-    is_circle = False
-    is_line = False
-    is_rectangle3 = True
-    close_points = True
-    if is_line:
-        points = np.array([
-            [0., 0., 0.],
-            [0., 2., 0.],
-            [0.1, 2., 0.],
-            [0.1, 0., 0.],
-        ])
-        #thickness = 0.1
-        length = 2.0
-        Ix = 1/12 * mass * length**2
-        Iy = 0.
-        Iz = 1/12 * mass * length**2
-    elif is_rectangle3:
-        thickness = 0.2
-        close_points = False
-        points = np.array([
-            [0., 0., 0.],
-            [0., 1.25, 0.],
-            [1.2, 1.25, 0.],
-            [1.2, 0., 0.],
-        ])
-        a = 1.
-        b = 2.
-        # wrong
-        Ix = 1/12 * mass * b**2
-        Iy = 1/12 * mass * a**2
-        Iz = 1/12 * mass * (a**2 + b**2)
-
-    elif is_rectangle:  # rectangle
-        points = np.array([
-            [0., 0., 0.],
-            [0., 2., 0.],
-            [1., 2., 0.],
-            [1., 0., 0.],
-        ])
-        # https://byjus.com/jee/moment-of-inertia-of-rectangular-plate/
-        # nevermind that the formulas arr listed withi Ix
-        # the words above that are correct
-        a = 1.
-        b = 2.
-        Ix = 1/12 * mass * b**2
-        Iy = 1/12 * mass * a**2
-        Iz = 1/12 * mass * (a**2 + b**2)
-    else:
-        assert is_circle, f'is_circle {is_circle}'
-        npoints = 360
-        radius = 2.14
-        Ix = mass * radius**2 / 2
-        Iy = mass * radius**2 / 2
-        Iz = mass * radius**2
-        points = np.zeros((npoints, 3))
-        theta = np.linspace(0, 2 * np.pi, npoints, endpoint=False)
-        x = radius * np.cos(theta)
-        y = radius * np.sin(theta)
-        points[:, 0] = x
-        points[:, 1] = y
-        thickness = 0.000001
-
-    # p1 = points[0, :]
-    # p2 = points[1, :]
-    # p3 = points[2, :]
-    # p4 = points[3, :]
-    #
-    # l1 = [p1, p2]
-    # l2 = [p2, p3]
-    # l3 = [p3, p4]
-    # l4 = [p4, p1]
-    # edges = [l1, l2, l3, l4]
-    # for line in edges:
-    #     pa, pb = line
-    #     x = [pa[0], pb[0]]
-    #     y = [pa[1], pb[1]]
-    #     ax.plot(x, y, '-')
-    if close_points:
-        points_closed = np.vstack([points, points[0, :],])
-        ax.plot(points_closed[:, 0], points_closed[:, 1], '-', label='raw')
-    else:
-        ax.plot(points[:, 0], points[:, 1], '-', label='raw')
-
-    if is_circle:
-        aaa
-        cg_total, inertia = reduce_line_nsm(points, thickness, mass, ax, num_interp=40)
-    elif is_line or is_rectangle:
-        bbb
-        cg_total, inertia = reduce_area_nsm(points, mass, ax, num_interp=40)
-    elif is_rectangle3:
-        cg_total, inertia = reduce_n_minus1_sided_thickness(
-            points, thickness, mass,
-            ax)
-    else:
-        raise RuntimeError((is_circle, is_line, is_rectangle))
-    #cg_total, inertia = reduce_line_nsm(points, thickness, mass, ax, num_interp=40)
-    ixx, iyy, izz, ixy, ixz, iyz = inertia
-    cgx, cgy, cgz = cg_total
-
-    print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
-    print(ixx, iyy, izz, ixy, ixz, iyz)
-    print(Ix, Iy, Iz)
-    plt.legend()
-    plt.show()
 
 
 if __name__ == '__main__':

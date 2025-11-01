@@ -5,7 +5,7 @@ import numpy as np
 from scipy.signal import lfilter
 import matplotlib.pyplot as plt
 
-from dynamight.typing import Limit
+from dynamight.dyn_typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 from dynamight.core.plot_utils import _set_grid, _adjust_axes_limit
 

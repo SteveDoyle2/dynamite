@@ -8,7 +8,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 
 #import dynamight.core.time as dynatime
-from dynamight.typing import Limit
+from dynamight.dyn_typing import Limit
 from dynamight.utils.lttb import array_largest_triangle_three_buckets
 from dynamight.core.load_utils import _update_label, _response_squeeze
 

@@ -8,7 +8,7 @@ from scipy.signal import butter, filtfilt, sosfiltfilt, sosfilt
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from dynamight.typing import Limit
+from dynamight.dyn_typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 import dynamight.core.fourier_transform as ft
 #import dynamight.core.time as time
@@ -446,6 +446,7 @@ class TimeSeries:
             ax = fig.gca()
         if title:
             ax.set_title(title)
+            fig = ax.get_figure()
         ax.set_xlabel('Time (sec)')
         ax.set_ylabel('Response (g)')
         ax.plot(self.time, self.response[:, 0], linestyle, label=self.label[0])
