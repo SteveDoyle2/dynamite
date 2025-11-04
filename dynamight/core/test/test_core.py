@@ -370,7 +370,7 @@ class TestCore(unittest.TestCase):
         points_closed = np.vstack([points, points[0, :],])
         ax.plot(points_closed[:, 0], points_closed[:, 1], '-', label='raw')
 
-        area, cg_total, inertia = reduce_area_nsm(points, mass, ax, num_interp=40)
+        area, cg_total, inertia = reduce_area_nsm(points, mass, num_interp=40)
         ixx, iyy, izz, ixy, ixz, iyz = inertia
         cgx, cgy, cgz = cg_total
         print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
@@ -402,7 +402,8 @@ class TestCore(unittest.TestCase):
         points_closed = np.vstack([points, points[0, :],])
         ax.plot(points_closed[:, 0], points_closed[:, 1], '-', label='raw')
 
-        cg_total, inertia = reduce_line_nsm(points, thickness, mass, ax, num_interp=40)
+        _points, cg_total, inertia = reduce_line_nsm(
+            points, thickness, mass, num_interp=40)
         ixx, iyy, izz, ixy, ixz, iyz = inertia
         cgx, cgy, cgz = cg_total
         print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
@@ -433,9 +434,9 @@ class TestCore(unittest.TestCase):
         points_closed = np.vstack([points, points[0, :],])
         ax.plot(points_closed[:, 0], points_closed[:, 1], '-', label='raw')
 
-        area, cg_total, inertia = reduce_area_nsm(points, mass, ax, num_interp=40)
+        area, cg, inertia = reduce_area_nsm(points, mass, num_interp=40)
         ixx, iyy, izz, ixy, ixz, iyz = inertia
-        cgx, cgy, cgz = cg_total
+        cgx, cgy, cgz = cg
         print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
         print(ixx, iyy, izz, ixy, ixz, iyz)
         print(Ix, Iy, Iz)
@@ -464,11 +465,11 @@ class TestCore(unittest.TestCase):
         Iz = 1 / 12 * mass * (a ** 2 + b ** 2)
         ax.plot(points[:, 0], points[:, 1], '-', label='raw')
 
-        points_internal, points_external, points_quads_list, area, cg_total, inertia = reduce_n_minus1_sided_thickness(
-            points, thickness, mass)
+        out = reduce_n_minus1_sided_thickness(points, thickness, mass)
+        points_internal, points_external, points_quads_list, area, cg, inertia = out
 
         ixx, iyy, izz, ixy, ixz, iyz = inertia
-        cgx, cgy, cgz = cg_total
+        cgx, cgy, cgz = cg
         print(f'cg = [{cgx:g}, {cgy:g}, {cgz:g}]')
         print(ixx, iyy, izz, ixy, ixz, iyz)
         print(Ix, Iy, Iz)
