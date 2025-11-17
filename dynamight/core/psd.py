@@ -14,7 +14,7 @@ from dynamight.core.load_utils import _update_label, _response_squeeze
 
 import dynamight.core.time as dytime
 import dynamight.core.fourier_transform as ft
-import dynamight.core.vrs as dynvrs # VibrationResponseSpectra
+import dynamight.core.vrs as dynvrs  # VibrationResponseSpectra
 from dynamight.core.freq_utils import _to_twosided_fsampling, psd_to_onesided, psd_to_twosided
 #from dynamight.plotting.utils import _set_grid
 from dynamight.core.plot_utils import _set_grid, get_colors
@@ -23,7 +23,8 @@ from dynamight.core.plot_utils import _set_grid, get_colors
 class PowerSpectralDensity:
     def __init__(self, frequency: np.ndarray, psd_response: np.ndarray,
                  label: list[str], sided: int=1,
-                 is_onesided_center: bool=None, octave_spacing: int=0):
+                 is_onesided_center: bool=None,
+                 octave_spacing: int=0):
         """
         Parameters
         ----------
@@ -76,6 +77,75 @@ class PowerSpectralDensity:
                 is_onesided_center=self.is_onesided_center)
             return fsampling
         raise RuntimeError(self.octave_spacing)
+
+    def integrate(self, inplace: bool=True) -> None:
+        """
+        Integrates a PSD
+
+        Parameters
+        ----------
+        inplace : bool
+            should
+        X   =      * A*e^(iwt)
+        Xd  = i*w  * A*e^(iwt)
+        Xdd = -w^2 * A*e^(iwt)
+        Xdd/Xd = -w^2 / i*w ~= -w (for i=1)
+        Xdd = -w*Xd
+        Xdd / -w = Xd ~= Xdd / w (for magnitude)
+
+        Xd = Xdd / omega
+        Xd^2 = Xdd^2 / omega^2
+        omega = 2*pi*freq
+
+        However, we need to do a PSD, so:
+        PSD_Xdd = Xdd^2 / df
+        PSD_Xd  = Xd^2  / df = Xdd^2 / df / omega^2 = PSD_Xdd / omega^2
+        PSD_Xd = PSD_Xdd / omega^2
+
+        Returns
+        -------
+
+        """
+        omega = 2 * np.pi * self.frequency
+        data2 = self.data / omega ** 2
+        if inplace:
+            self.data = data2
+            out = self
+        else:
+            out = PowerSpectralDensity(
+                self.frequency, data2, self.label,
+                sided=self.sided,
+                is_onesided_center=self.is_onesided_center,
+                octave_spacing=self.octave_spacing)
+        return out
+
+    def to_magnitude_phase(self, phase: Optional[np.ndarray],
+                           is_phase_deg: bool=True) -> np.ndarray:
+        """
+        PSD = M^2/df
+        M = sqrt(PSD*df)
+        """
+        mag = np.sqrt(self.data * self.df)
+        if phase is None:
+            phase = np.zeros(self.data.shape)
+        elif is_phase_deg:
+            phase = np.radians(phase)
+        assert phase.shape == self.data.shape, (phase.shape, self.data.shape)
+
+        fft_type = 'real_imag'
+        a = mag * np.cos(phase)
+        b = mag * np.sin(phase)
+        fft_response = a + 1j * b
+
+        # fft_type = 'mag_phase'
+        # fft_response = mag + 1j * phase
+
+        assert self.octave_spacing == 0, self.octave_spacing
+        fft = ft.FourierTransform(
+            self.frequency, fft_response,
+            label=self.label, fft_type=fft_type,
+            sided=self.sided, is_onesided_center=self.is_onesided_center)
+        return fft
 
     def to_time_series(self) -> dytime.TimeSeries:
         if self.sided == 1:
@@ -169,7 +239,7 @@ class PowerSpectralDensity:
             num0 = 4 * zeta ** 2 * rho2
             denom = ((1 - rho2) ** 2) + num0
 
-            grms0 = ((1 + num0)/ denom)
+            grms0 = (1 + num0) / denom
             grms1 = grms0 * self.response[:, 0] * df
             grms = np.sqrt(grms1.sum(axis=0))
             assert len(grms) == len(self.frequency)
@@ -180,7 +250,7 @@ class PowerSpectralDensity:
             num0 = 4 * zeta ** 2 * rho2
             denom = ((1 - rho2) ** 2) + num0
 
-            grms0 = (1 + num0)/ denom
+            grms0 = (1 + num0) / denom
             grms1 = grms0 * self.response[:, 0] * df
             grms = np.sqrt(grms1.sum())
             grmss = np.array([grms])
@@ -194,7 +264,7 @@ class PowerSpectralDensity:
                 num0 = 4 * zeta ** 2 * rho2
                 denom = ((1 - rho2) ** 2) + num0
 
-                grms0 = (1 + num0)/ denom
+                grms0 = (1 + num0) / denom
                 grms1 = grms0 * self.response[:, 0] * df
                 grms = np.sqrt(grms1.sum())
                 grmss[i] = grms
@@ -227,8 +297,8 @@ class PowerSpectralDensity:
 
     def to_twosided(self, inplace: bool=True):
         if self.sided == 2:
-            self.fsampling
-            self.df
+            str(self.fsampling)
+            str(self.df)
             return self
         assert self.sided == 1, self.sided
 
@@ -314,14 +384,15 @@ class PowerSpectralDensity:
 
     def filter_by_log_mean(self) -> np.ndarray:
         ylogmean = self.get_log_mean()
-        self.filter_below_curve(ylogmean)
+        psd = self.filter_below_curve(ylogmean)
+        return psd
 
     def plot(self, ifig: int=1,
              ax: Optional[plt.Axes]=None,
              y_units: str='g', xscale: str='log', yscale: str='log',
              xlim: Optional[Limit]=None,
              ylim: Optional[Limit]=None,
-             linestyle='-o',
+             linestyle: str='-o',
              title: str='Power Spectral Density',
              threshold=None,
              plot_maximax: bool=False,
@@ -419,8 +490,8 @@ def get_grms(frequency: np.ndarray,
     not_close = ~is_close
 
     if np.all(not_close):
-        a = ten_log2 * psd_high / (ten_log2 + m)
-        b = flow_fhigh[:, np.newaxis] ** exp
+        #a = ten_log2 * psd_high / (ten_log2 + m)
+        #b = flow_fhigh[:, np.newaxis] ** exp
         A = ten_log2 * psd_high / (ten_log2 + m) * \
             (fhigh[:, np.newaxis] - flow[:, np.newaxis] * (flow_fhigh[:, np.newaxis]) ** exp)
     else:
@@ -435,4 +506,3 @@ def get_grms(frequency: np.ndarray,
     grms = np.sqrt(Asum)
     assert len(grms) == nresponse
     return grms
-

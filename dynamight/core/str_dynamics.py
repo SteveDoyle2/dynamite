@@ -28,8 +28,29 @@ def reduce_n_minus1_sided_thickness(
         points: np.ndarray,
         thickness: float,
         total_mass: float,
-        normal_sign: float=1.0) -> tuple[np.ndarray, np.ndarray, list[np.ndarray],
-                                         float, np.ndarray, np.ndarray]:
+        normal_sign: float=1.0,
+        nround: int=6) -> tuple[np.ndarray, np.ndarray, list[np.ndarray],
+                                float, np.ndarray, np.ndarray]:
+    """
+    Get the cg/inertia of an quad with 3 sides with tape (similar to reduce_line_nsm).
+
+    Parameters
+    ----------
+    points : np.ndarray
+        the quad
+    thickness : float
+        the thickness of the strip
+    total_mass : float
+        the mass to apply
+    normal_sign : float; default=1.0
+        flips the direction of the thickness
+    nround : int; default=6
+        rounds the inertia
+
+    Returns
+    -------
+
+    """
     npoints = len(points)
     nedges = npoints - 1
     points2, points3 = _get_internal_line_points(points, thickness)
@@ -61,12 +82,12 @@ def reduce_n_minus1_sided_thickness(
     for iarea, pointsi, areai, massi in zip(count(), points_quads, area, mass):
         areai, cgi, inertiai = reduce_area_nsm(
             pointsi, massi,
-            num_interp=10, nround=6)
+            num_interp=10, nround=nround)
         cg[iarea, :] = cgi
         inertia[iarea, :] = inertiai
 
-    cg_total, inertia_total = combine_area_based_mass_cg_inertia(
-        area, mass, cg, inertia)
+    cg_total, inertia_total = combine_mass_cg_inertia(
+        mass, cg, inertia)
     return points_internal, points_external, points_quads, total_area, cg_total, inertia_total
 
 
@@ -91,14 +112,12 @@ def get_area_quads_from_internal_external_points(points_internal: np.ndarray,
     return points_quads, area, total_area
 
 
-def combine_area_based_mass_cg_inertia(
-        area: np.ndarray,
+def combine_mass_cg_inertia(
         mass: np.ndarray,
         cg: np.ndarray,
         inertia: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    assert len(area) == len(mass)
-    assert len(area) == len(cg)
-    assert len(area) == len(inertia)
+    assert len(mass) == len(cg)
+    assert len(mass) == len(inertia)
     total_mass = mass.sum()
     #cg_mass = (cg * mass[:, np.newaxis]) / total_mass
     cg_total = (cg * mass[:, np.newaxis]).sum(axis=0) / total_mass
@@ -107,12 +126,12 @@ def combine_area_based_mass_cg_inertia(
     dx = dxyz[:, 0]
     dy = dxyz[:, 1]
     dz = dxyz[:, 2]
-    ixx = (inertia[:, 0] + area * (dy**2 + dz**2)).sum()
-    iyy = (inertia[:, 1] + area * (dx**2 + dz**2)).sum()
-    izz = (inertia[:, 2] + area * (dx**2 + dy**2)).sum()
-    ixy = (inertia[:, 3] + area * (dx*dy)).sum()
-    ixz = (inertia[:, 4] + area * (dx*dz)).sum()
-    iyz = (inertia[:, 5] + area * (dy*dz)).sum()
+    ixx = (inertia[:, 0] + mass * (dy**2 + dz**2)).sum()
+    iyy = (inertia[:, 1] + mass * (dx**2 + dz**2)).sum()
+    izz = (inertia[:, 2] + mass * (dx**2 + dy**2)).sum()
+    ixy = (inertia[:, 3] + mass * (dx*dy)).sum()
+    ixz = (inertia[:, 4] + mass * (dx*dz)).sum()
+    iyz = (inertia[:, 5] + mass * (dy*dz)).sum()
 
     inertia_total = np.array([ixx, iyy, izz, ixy, ixz, iyz])
     # print('cgs\n', cg)
@@ -160,7 +179,9 @@ def reduce_line_nsm(points,
                     num_interp: int=360,
                     nround: int=6) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Handles general shapes. Use more points for curved shapes.
+    Get the points, cg, and inertia of a general shape of
+    wiht a strip of uniform thickness along the edge.
+    Use more points for curved shapes.
 
     Parameters
     ----------
@@ -175,7 +196,7 @@ def reduce_line_nsm(points,
 
     Returns
     -------
-    points2 : np.ndarray
+    points3 : np.ndarray
         the points where inertias are taken about
 
     TODO: Can't do a 1D rod, do that with an area.
@@ -263,6 +284,10 @@ def reduce_area_nsm(points: np.ndarray,
                     num_interp: int=40,
                     nround: int=6) -> tuple[float, np.ndarray, np.ndarray]:
     """
+    Get the area, cg, and inertia of a quad.
+
+    Parameters
+    ----------
     points : np.ndarray
         the bounding box
     mass_total : float
@@ -363,33 +388,45 @@ def reduce_area_nsm(points: np.ndarray,
     return area_total, cg_total, inertia_total
 
 
-def plot_header_line(fig: plt.Figure, ax: plt.Axes,
-                     mass: float,
-                     cg: np.ndarray,
-                     inertia: np.ndarray) -> None:
-    ixx, iyy, izz, ixy, ixz, iyz = inertia
+def plot_header(fig: plt.Figure,
+                ax: plt.Axes,
+                mass: float,
+                weight: float,
+                cg: np.ndarray,
+                inertia: np.ndarray,
+                include_radius: bool=True,
+                mass_units: str='slinch',
+                weight_units: str='lbm',
+                nround_mass: int=6,
+                nround_cg: int=3,
+                nround_inertia: int=3,
+                nround_radius: int=3,
+                title: str='area smear;\n') -> str:
+    mass = round(mass, nround_mass)
+    cgx, cgy, cgz = cg.round(nround_cg)
+    ixx, iyy, izz, ixy, ixz, iyz = inertia.round(nround_inertia)
+
     fig = ax.get_figure()
-    fig.suptitle(f'line smear; mass={mass:g} cg=[{cg[0]:g}, {cg[1]:g}, {cg[2]:g}]\n'
-                 f'inertia=[{ixx:g}, {ixy:g}, {iyy:g}, {ixz:g}, {iyz:g}, {izz:g}]')
+    ax.plot(cg[0], cg[1], 'o', label='cg')
+
+    msg = (
+        f'{title}mass({mass_units})={mass:g} weight({weight_units})={weight:g}\n'
+        f'cg=[{cgx:g}, {cgy:g}, {cgz:g}]\n'
+        f'inertia=[{ixx:g}, {ixy:g}, {iyy:g}, {ixz:g}, {iyz:g}, {izz:g}]')
+    if include_radius:
+        rxx, ryy, rzz, rxy, rxz, ryz = np.sqrt(np.abs(inertia) / mass).round(nround_radius)
+        msg += f'\nradius=[{rxx:g}, {rxy:g}, {ryy:g}, {rxz:g}, {ryz:g}, {rzz:g}]'
+    fig.suptitle(msg)
     ax.set_xlabel('x')
     ax.set_ylabel('y')
+
+    # line
     # if 0:
     #     ax.scatter(cg_total[0], cg_total[1], marker='o', label='cg', color='C2')
     #     ax.scatter(cg2[0], cg2[1], marker='o', label='cg-1/ax2', color='C1')
     #     # ax.scatter(cg1[0], cg1[1], marker='o', label='cg-1', color='C0')
     #     # ax.scatter(cg3[0], cg3[1], marker='o', label='cg-3')
-
-def plot_header_area(fig: plt.Figure, ax: plt.Axes,
-                     mass: float,
-                     cg: np.ndarray,
-                     inertia: np.ndarray) -> None:
-    ixx, iyy, izz, ixy, ixz, iyz = inertia
-    fig = ax.get_figure()
-    ax.plot(cg[0], cg[1], 'o', label='cg')
-    fig.suptitle(f'area smear; mass={mass:g} cg=[{cg[0]:g}, {cg[1]:g}, {cg[2]:g}]\n'
-                 f'inertia=[{ixx:g}, {ixy:g}, {iyy:g}, {ixz:g}, {iyz:g}, {izz:g}]')
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
+    return msg
 
 
 def get_inertia(dmass: np.ndarray,
@@ -428,7 +465,3 @@ def get_nquad(ab: np.ndarray) -> np.ndarray:
     N4 = (1 - ab[:, 0]) * (1 + ab[:, 1]) / 4
     Ns = np.column_stack([N1, N2, N3, N4])
     return Ns
-
-
-if __name__ == '__main__':
-    main()

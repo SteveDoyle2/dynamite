@@ -20,6 +20,7 @@ def fft_to_psd_df(frequency: np.ndarray, fft_response: np.ndarray) -> np.ndarray
     psd_response = fft_response * np.conj(fft_response) / df
     return psd_response.real
 
+
 def dft_to_onesided(frequency: np.ndarray,
                     response: np.ndarray) -> tuple[np.ndarray, np.ndarray, bool]:
     nfreq = len(frequency)
@@ -38,6 +39,7 @@ def dft_to_onesided(frequency: np.ndarray,
     response2 = response[:ifreq, :]
     assert len(frequency2) == ifreq, frequency2.shape
     return frequency, response2, is_onesided_center
+
 
 def psd_to_onesided(frequency: np.ndarray, response: np.ndarray,
                     ) -> tuple[np.ndarray, np.ndarray, bool]:
@@ -62,6 +64,7 @@ def psd_to_onesided(frequency: np.ndarray, response: np.ndarray,
     assert len(frequency2) == ifreq, frequency2.shape
     response[0, :] /= k  # don't adjust the 0 frequency
     return frequency2, response, is_onesided_center
+
 
 def psd_to_twosided(frequency: np.ndarray, response: np.ndarray,
                     is_onesided_center: bool,
@@ -93,6 +96,7 @@ def psd_to_twosided(frequency: np.ndarray, response: np.ndarray,
     assert len(frequency2) == nfreq, frequency2.shape
     assert response2.shape[1] == 1, response2.shape
     return frequency2, response2
+
 
 def _to_twosided_fsampling(fmax: float, df: float,
                            sided: int, is_onesided_center: bool) -> float:
@@ -168,7 +172,7 @@ def pseudo_response_spectra(acceleration: np.ndarray,
     """
     if periods is None:
         periods = np.array([
-            0.01,0.02,0.022,0.025,0.029,0.03,0.032,0.035,0.036,
+            0.01, 0.02,0.022,0.025,0.029,0.03,0.032,0.035,0.036,
             0.04,0.042,0.044,0.045,0.046,0.048,0.05,0.055,0.06,0.065,0.067,0.07,
             0.075,0.08,0.085,0.09,0.095,0.1,0.11,0.12,0.125,0.13,0.133,0.14,0.15,
             0.16,0.17,0.18,0.19,0.2,0.22,0.24,0.25,0.26,0.28,0.29,0.3,0.32,0.34,
@@ -241,6 +245,7 @@ def pseudo_response_spectra(acceleration: np.ndarray,
     SD = displ_max          # SD  (cm)
     return PSA, PSV, SD
 
+
 def plotting(PSA: np.ndarray,
              PSV: np.ndarray,
              SD: np.ndarray,
@@ -271,7 +276,7 @@ def plotting(PSA: np.ndarray,
     velocity_unit = f'{length_unit}/s'
 
     title2 = title + '\n' if title else ''
-    title2 += 'Pseudo spectral acceleration ($\mathregular{' + accel_unit + '}$)'
+    title2 += r'Pseudo spectral acceleration ($\mathregular{' + accel_unit + '}$)'
 
     ax1.set_title(title2)
     ax2.set_title(f'Pseudo spectral velocity ({velocity_unit})')
@@ -303,6 +308,7 @@ def plotting(PSA: np.ndarray,
 
     return fig
 
+
 def Qdamping_to_Qdamping(Q: Optional[float],
                          damping: Optional[float]) -> tuple[float, float]:
     if Q is None:
@@ -312,6 +318,7 @@ def Qdamping_to_Qdamping(Q: Optional[float],
         assert Q is not None, (damping, Q)
         damping = 1 / (2 * Q)
     return Q, damping
+
 
 def mck_to_omega_damping(m: float, c: float, k: float) -> tuple[float, float]:
     """
@@ -332,6 +339,7 @@ def mck_to_omega_damping(m: float, c: float, k: float) -> tuple[float, float]:
     damping = c / c_crit  # c/(2*sqrt(m*k))
     return omegan, damping
 
+
 def equivalent_spring_dampers_in_parallel(ks: list[float]=None,
                                           cs: list[float]=None) -> tuple[float, float]:
     """a square plate mounted on isolators with a spring/damper at each corner"""
@@ -343,6 +351,7 @@ def equivalent_spring_dampers_in_parallel(ks: list[float]=None,
     if cs:
         ceq = sum(cs)
     return keq, ceq
+
 
 def equivalent_spring_dampers_in_series(ks: list[float]=None,
                                         cs: list[float]=None) -> tuple[float, float]:
@@ -359,28 +368,36 @@ def equivalent_spring_dampers_in_series(ks: list[float]=None,
 # https://www.vibrationdata.com/software.htm
 # https://community.sw.siemens.com/s/article/dynamic-stiffness-compliance-mobility-and-more
 # https://www.vibrationdata.com/tutorials_alt/frf.pdf
+
+
 def compliance(force, displacement):
     """1/k at low end; 1/(omega^2*m) at high end"""
     return displacement / force
+
 
 def dynamic_stiffness(force, displacement):
     """inverse of compliance terms"""
     return force / displacement
 
+
 def mobility(force, velocity):
     """omega/k at low end; 1/(omega*m) at high end"""
     return velocity / force
 
+
 def mechanical_impedance(force, velocity):
     return force / velocity
+
 
 def accelerance(force, acceleration):
     """omega^2/k at low end; 1/m at high end"""
     return acceleration / force
 
+
 def dynamic_mass(force, acceleration):
     """inverse of accelerance terms"""
     return force / acceleration
+
 
 inertance = accelerance
 apparent_mass = dynamic_mass

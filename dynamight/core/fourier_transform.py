@@ -7,14 +7,38 @@ import matplotlib.pyplot as plt
 from dynamight.dyn_typing import Limit
 from dynamight.core.load_utils import _update_label, _response_squeeze
 import dynamight.core.time as dytime
-import dynamight.core.psd as dypsd # PowerSpectralDensity
+import dynamight.core.psd as dypsd  # PowerSpectralDensity
 from dynamight.core.freq_utils import _to_twosided_fsampling, fft_to_psd_df, dft_to_onesided
 from dynamight.core.plot_utils import _set_grid, _adjust_axes_limit
 
 
 class FourierTransform:
     def __init__(self, frequency: np.ndarray, fft_response: np.ndarray, label: list[str],
-                 fft_type: str='real_imag', sided: int=1, is_onesided_center: bool=None):
+                 fft_type: str='real_imag', sided: int=1,
+                 is_onesided_center: bool=None):
+        """
+
+        Parameters
+        ----------
+        frequency : np.ndarray
+            in Hertz
+        fft_response : np.ndarray
+            real/imaginary data corresponding to fft_type
+        label : list[str]
+            labels for signals
+        fft_type : str; default='real_imag'
+            real_imag:
+                a = mag * np.cos(phase)
+                b = mag * np.sin(phase)
+                fft_response = a + 1j * b
+            mag_phase:
+                fft_response = mag + 1j * phase
+        sided : bool; default=1
+            is this a 1-sided or 2-sided signal
+        is_onesided_center : bool; default=None
+            ???
+
+        """
         if fft_response.ndim == 1:
             fft_response = fft_response.reshape(len(fft_response), 1)
         self.frequency = frequency
@@ -33,13 +57,14 @@ class FourierTransform:
     def df(self) -> float:
         df = self.frequency[1] - self.frequency[0]
         return df
+
     @property
     def fsampling(self) -> float:
         fmax = self.frequency[-1]
         fsampling = _to_twosided_fsampling(fmax, self.df, self.sided, self.is_onesided_center)
         return fsampling
 
-    def to_time(self):
+    def to_time(self) -> dytime.TimeSeries:
         assert self.sided == 2, self.sided
         #fnyq = self.frequency[-1]
         #fsampling = fnyq * 2
@@ -79,6 +104,7 @@ class FourierTransform:
             mag = response.real
             phase = response.imag
         else:
+            # TODO: is this right?
             mag = np.abs(response)
             phase = np.arctan2(response.imag, response.real)
         if is_phase_deg:
@@ -186,7 +212,7 @@ class FourierTransform:
         ax2.set_ylabel(phase_ylabel)
         _adjust_axes_limit(ax2, phase)
 
-        _set_grid(ax1, xscale, yscale=yscale_mag) # mag
+        _set_grid(ax1, xscale, yscale=yscale_mag)  # mag
         _set_grid(ax2, xscale, yscale='linear')   # phase
         if xlim:
             ax1.set_xlim(xlim)

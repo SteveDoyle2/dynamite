@@ -289,6 +289,7 @@ class TimeSeries:
             assert fft_response.shape[0] == ntimes, (fft_response.shape, ntimes)
 
         if fft_type == 'mag_phase':
+            # TODO: is this right?
             mag = np.abs(fft_response)
             phase = np.arctan2(fft_response.imag, fft_response.real)
             fft_response = mag + 1j * phase

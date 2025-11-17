@@ -22,8 +22,10 @@ per https://github.com/devoxi/lttb-py/blob/master/lttb/lttb.py
 import math
 import numpy as np
 
+
 class LttbException(Exception):
     pass
+
 
 def array_largest_triangle_three_buckets(xdata: np.ndarray, ydata: np.ndarray,
                                          threshold: int, is_log10: bool=False) -> np.ndarray:
@@ -40,6 +42,7 @@ def array_largest_triangle_three_buckets(xdata: np.ndarray, ydata: np.ndarray,
         data2i = largest_triangle_three_buckets(data1.tolist(), threshold)
         data2 = np.array(data2i, dtype=data1.dtype)
     return data2
+
 
 def largest_triangle_three_buckets(data: list[float], threshold: int) -> list[float]:
     """
@@ -127,4 +130,3 @@ def largest_triangle_three_buckets(data: list[float], threshold: int) -> list[fl
 
     sampled.append(data[len(data) - 1])  # Always add last
     return sampled
-
